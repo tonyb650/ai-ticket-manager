@@ -4,3 +4,4 @@ dist/
 .env.local
 server/generated/
 .DS_Store
+PRIVATE.md
