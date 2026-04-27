@@ -5,3 +5,4 @@ dist/
 server/generated/
 .DS_Store
 PRIVATE.md
+*.tsbuildinfo
