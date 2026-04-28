@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { authClient, useSession } from "../lib/authClient";
 
 export default function NavBar() {
@@ -12,9 +12,19 @@ export default function NavBar() {
 
   return (
     <nav className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-white">
-      <span className="text-sm font-medium text-gray-900">
-        {session?.user.name}
-      </span>
+      <div className="flex items-center gap-6">
+        <span className="text-sm font-medium text-gray-900">
+          {session?.user.name}
+        </span>
+        {session?.user.role === "admin" && (
+          <Link
+            to="/users"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition"
+          >
+            Users
+          </Link>
+        )}
+      </div>
       <button
         type="button"
         onClick={handleSignOut}
