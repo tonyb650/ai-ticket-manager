@@ -26,16 +26,22 @@ app.use(
   })
 );
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: { error: "Too many login attempts, please try again later" },
-});
+const authHandlers: express.RequestHandler[] = [];
+if (process.env.NODE_ENV === "production") {
+  authHandlers.push(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: 20,
+      standardHeaders: "draft-8",
+      legacyHeaders: false,
+      message: { error: "Too many login attempts, please try again later" },
+    })
+  );
+}
+authHandlers.push(toNodeHandler(auth));
 
 // Better Auth handler must come before express.json()
-app.all("/api/auth/*splat", authLimiter, toNodeHandler(auth));
+app.all("/api/auth/*splat", ...authHandlers);
 
 app.use(express.json());
 

@@ -6,3 +6,7 @@ server/generated/
 .DS_Store
 PRIVATE.md
 *.tsbuildinfo
+test-results/
+playwright-report/
+playwright/.cache/
+blob-report/

@@ -8,7 +8,9 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:seed": "bun src/scripts/seed.ts"
+    "db:seed": "bun src/scripts/seed.ts",
+    "db:migrate:test": "bun --env-file=../e2e/.env.test prisma migrate deploy",
+    "db:seed:test": "bun --env-file=../e2e/.env.test src/scripts/seed.ts"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
