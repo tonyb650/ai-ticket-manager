@@ -119,9 +119,5 @@ Components land in `client/src/components/ui/`.
 3. `bun run db:generate` to update the Prisma client types
 4. New migrations are picked up by the test DB automatically next time `test:e2e` runs (Playwright's `globalSetup` calls `prisma migrate deploy`)
 
-### E2E tests (Playwright)
-- Lives in `e2e/`. Config: `e2e/playwright.config.ts`. Setup: `e2e/global-setup.ts` runs `prisma migrate deploy` + the seed script against the test DB before any tests.
-- Test env lives in `e2e/.env.test` (committed — test-only secrets). Loaded via Bun's `--env-file` flag for the server and via `dotenv` in `globalSetup`.
-- Playwright's `webServer` boots both the server (port 3031) and a separate Vite dev server (port 5174) for each test run. The test client overrides Vite's proxy target via `VITE_API_PROXY_TARGET=http://localhost:3031` so `/api/*` requests reach the test server.
-- The Vite proxy in `client/vite.config.ts` reads `VITE_API_PROXY_TARGET` (defaults to `http://localhost:3030`). Don't hardcode the proxy target.
-- Bun gotcha: `bun --env-file=X x <bin>` does **not** propagate `--env-file` through `bun x`. Use `bun --env-file=X <bin>` directly (see `db:migrate:test` script).
+### E2E tests
+Playwright tests live in `e2e/`. When writing or extending e2e tests, delegate to the `e2e-test-writer` agent (via the Agent tool) — it has the project-specific conventions, setup details, and quality bar baked in. See `e2e/.claude/agents/e2e-test-writer.md` for what it knows.
