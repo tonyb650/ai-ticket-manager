@@ -5,7 +5,8 @@ export default function AdminRoute() {
   const { data: session, isPending } = useSession();
 
   if (isPending) return null;
-  if (session?.user.role !== "admin") return <Navigate to="/" replace />;
+  if (!session) return <Navigate to="/login" replace />;
+  if (session.user.role !== "admin") return <Navigate to="/" replace />;
 
   return <Outlet />;
 }

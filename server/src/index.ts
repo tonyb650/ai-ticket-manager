@@ -1,9 +1,20 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
+
+if (process.env.NODE_ENV === "production") {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret || secret === "change-me-in-production" || secret.length < 32) {
+    throw new Error("BETTER_AUTH_SECRET is missing, default, or shorter than 32 characters");
+  }
+  if (!process.env.BETTER_AUTH_URL?.startsWith("https://")) {
+    throw new Error("BETTER_AUTH_URL must use HTTPS in production");
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT ?? 3030;
@@ -15,8 +26,16 @@ app.use(
   })
 );
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: { error: "Too many login attempts, please try again later" },
+});
+
 // Better Auth handler must come before express.json()
-app.all("/api/auth/*splat", toNodeHandler(auth));
+app.all("/api/auth/*splat", authLimiter, toNodeHandler(auth));
 
 app.use(express.json());
 
@@ -25,7 +44,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/me", requireAuth, (req, res) => {
-  res.json(req.session.user);
+  const { id, name, email, role } = req.session.user;
+  res.json({ id, name, email, role });
 });
 
 app.listen(PORT, () => {

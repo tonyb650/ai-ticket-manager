@@ -1,0 +1,1 @@
+- [Helpdesk Security Posture](project_security_posture.md) — endpoint surface, auth/RBAC pattern, confirmed gaps and correctly-implemented controls as of 2026-04-28 audit
