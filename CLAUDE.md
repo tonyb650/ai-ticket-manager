@@ -120,4 +120,4 @@ Components land in `client/src/components/ui/`.
 4. New migrations are picked up by the test DB automatically next time `test:e2e` runs (Playwright's `globalSetup` calls `prisma migrate deploy`)
 
 ### E2E tests
-Playwright tests live in `e2e/`. When writing or extending e2e tests, delegate to the `e2e-test-writer` agent (via the Agent tool) — it has the project-specific conventions, setup details, and quality bar baked in. See `e2e/.claude/agents/e2e-test-writer.md` for what it knows.
+Playwright tests live in `e2e/`. When writing or extending e2e tests, delegate to the `e2e-test-writer` agent (via the Agent tool) — it has the project-specific conventions, setup details, and quality bar baked in. See `.claude/agents/e2e-test-writer.md` for what it knows.

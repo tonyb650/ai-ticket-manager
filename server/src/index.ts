@@ -5,6 +5,7 @@ import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
+import { requireAdmin } from "./middleware/requireAdmin";
 
 if (process.env.NODE_ENV === "production") {
   const secret = process.env.BETTER_AUTH_SECRET;
@@ -52,6 +53,10 @@ app.get("/api/health", (_req, res) => {
 app.get("/api/me", requireAuth, (req, res) => {
   const { id, name, email, role } = req.session.user;
   res.json({ id, name, email, role });
+});
+
+app.get("/api/users", requireAuth, requireAdmin, (_req, res) => {
+  res.json({ users: [] });
 });
 
 app.listen(PORT, () => {

@@ -14,11 +14,23 @@ export default defineConfig({
   use: {
     baseURL: TEST_CLIENT_URL,
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
   projects: [
+    // Auth setup — logs in as admin and agent, saves storage state for reuse
+    {
+      name: "setup",
+      testMatch: /auth\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+
+    // Main project — runs all tests (auth tests use test.use to set storageState inline)
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      dependencies: ["setup"],
+      testIgnore: /auth\.setup\.ts/,
     },
   ],
   webServer: [
