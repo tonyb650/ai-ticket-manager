@@ -81,7 +81,7 @@ Copy `server/.env.example` to `server/.env` and fill in values before starting. 
 
 ## Tech stack
 
-**Client:** React 19, React Router v7, Vite, Tailwind CSS v4, shadcn/ui (Nova preset, neutral base color), react-hook-form + Zod, Better Auth client
+**Client:** React 19, React Router v7, Vite, Tailwind CSS v4, shadcn/ui (Nova preset, neutral base color), react-hook-form + Zod, Better Auth client, axios, TanStack Query v5
 
 **Server:** Express v5, Better Auth, Prisma v7 (pg adapter), PostgreSQL 17, express-rate-limit
 
@@ -96,9 +96,23 @@ Copy `server/.env.example` to `server/.env` and fill in values before starting. 
 
 ### Adding shadcn components
 ```bash
-bunx --bun shadcn@latest add <component>
+bunx --bun shadcn@latest add <component> -c client
 ```
-Components land in `client/src/components/ui/`.
+Components land in `client/src/components/ui/`. The `-c client` flag is required because the project is a Bun workspace monorepo — running without it from the repo root errors out asking for a workspace.
+
+### Client data fetching
+- Use **axios** for HTTP requests, not `fetch`. It's already installed in `client/`.
+- Wrap server reads in **TanStack Query** (`useQuery`) and writes in `useMutation`. The `QueryClient` is set up at the app root in `client/src/main.tsx`.
+- Forward the `signal` from `queryFn` into the axios call so React Query can abort in-flight HTTP requests on unmount or refetch:
+  ```ts
+  useQuery({
+    queryKey: ["users"],
+    queryFn: ({ signal }) =>
+      axios.get<{ users: User[] }>("/api/users", { signal }).then((r) => r.data.users),
+  });
+  ```
+- Use relative `/api/...` URLs — Vite proxies `/api` to the server in dev (`client/vite.config.ts`), and Better Auth's session cookie is sent automatically as same-origin.
+- Loading-state gate: prefer `isPending` for queries that always run; use `isLoading` (`isPending && isFetching`) when the query is conditional via `enabled`, otherwise the spinner stays up forever for a query that hasn't started.
 
 ### Auth
 - Sign-up is disabled; users are created via the seed script or directly in the database.

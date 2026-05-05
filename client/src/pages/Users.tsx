@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,24 +21,13 @@ type User = {
 };
 
 export default function Users() {
-  const [users, setUsers] = useState<User[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/users")
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-        const data = (await res.json()) as { users: User[] };
-        if (!cancelled) setUsers(data.users);
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: users, error, isPending } = useQuery({
+    queryKey: ["users"],
+    queryFn: ({ signal }) =>
+      axios
+        .get<{ users: User[] }>("/api/users", { signal })
+        .then((res) => res.data.users),
+  });
 
   return (
     <div className="p-8">
@@ -45,8 +35,8 @@ export default function Users() {
 
       <div className="mt-6">
         {error ? (
-          <p className="text-sm text-red-600">Failed to load users: {error}</p>
-        ) : users === null ? (
+          <p className="text-sm text-red-600">Failed to load users: {error.message}</p>
+        ) : isPending ? (
           <p className="text-sm text-gray-500">Loading…</p>
         ) : (
           <Table>
