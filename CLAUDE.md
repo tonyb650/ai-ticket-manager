@@ -19,6 +19,7 @@ Run from the repo root:
 ```bash
 bun run dev:client     # Vite dev server at http://localhost:5173
 bun run dev:server     # Express server at http://localhost:3030 (watch mode)
+bun run test:client    # Run Vitest component tests (one-shot)
 bun run test:e2e       # Run Playwright (boots test server + client on test ports)
 bun run db:test:up     # Start the test Postgres container (port 5433)
 bun run db:test:down   # Stop and wipe the test Postgres volume
@@ -39,7 +40,11 @@ Run from `client/`:
 
 ```bash
 bun run build          # Type-check + Vite build
+bun run test           # Run component tests once (vitest run)
+bun run test:watch     # Run component tests in watch mode
 ```
+
+⚠️ `bun test` (no `run`) invokes Bun's built-in test runner, **not** Vitest, and ignores the `test` script. Always use `bun run test` (or `bunx vitest`).
 
 ## Infrastructure
 
@@ -85,7 +90,7 @@ Copy `server/.env.example` to `server/.env` and fill in values before starting. 
 
 **Server:** Express v5, Better Auth, Prisma v7 (pg adapter), PostgreSQL 17, express-rate-limit
 
-**Testing:** Playwright (E2E, in `e2e/`)
+**Testing:** Vitest + React Testing Library + jsdom (component tests, in `client/`); Playwright (E2E, in `e2e/`)
 
 **Tooling:** Bun (package manager + runtime), TypeScript
 
@@ -132,6 +137,15 @@ Components land in `client/src/components/ui/`. The `-c client` flag is required
 2. `bun run db:migrate` to create and apply a migration against the dev DB
 3. `bun run db:generate` to update the Prisma client types
 4. New migrations are picked up by the test DB automatically next time `test:e2e` runs (Playwright's `globalSetup` calls `prisma migrate deploy`)
+
+### Component tests
+- Stack: **Vitest** (jsdom environment) + **React Testing Library** + **`@testing-library/jest-dom`** matchers. Config lives in `client/vite.config.ts` under the `test` block; matchers and `cleanup()` are wired up in `client/src/test/setup.ts`.
+- Tests live next to the component as `<Component>.test.tsx` in `client/src/`.
+- Run from the repo root with `bun run test:client`, or from `client/` with `bun run test` (one-shot) / `bun run test:watch`.
+- Mock `axios` with `vi.mock("axios")` and stub `axios.get` per test (`vi.mocked(axios.get).mockResolvedValueOnce(...)`); call `mockReset()` in `beforeEach` so implementations don't leak between tests.
+- Wrap components that use TanStack Query in a fresh `QueryClientProvider` per render with `defaultOptions: { queries: { retry: false } }` so failed queries don't retry and tests don't share cache state.
+- Query the accessibility tree (`screen.getByRole`, `screen.getByText`, `findBy*`) rather than `container.querySelectorAll`. Reach for `data-slot` / `data-testid` only when there is no semantic alternative.
+- TanStack Query logs failed queries to `console.error`. In error-path tests, scope a `vi.spyOn(console, "error").mockImplementation(() => {})` to that test (restore in `afterEach`) — don't silence it globally, or real regressions will be hidden.
 
 ### E2E tests
 Playwright tests live in `e2e/`. When writing or extending e2e tests, delegate to the `e2e-test-writer` agent (via the Agent tool) — it has the project-specific conventions, setup details, and quality bar baked in. See `.claude/agents/e2e-test-writer.md` for what it knows.
