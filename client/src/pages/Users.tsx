@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -36,8 +37,6 @@ export default function Users() {
       <div className="mt-6">
         {error ? (
           <p className="text-sm text-red-600">Failed to load users: {error.message}</p>
-        ) : isPending ? (
-          <p className="text-sm text-gray-500">Loading…</p>
         ) : (
           <Table>
             <TableHeader>
@@ -49,7 +48,16 @@ export default function Users() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.length === 0 ? (
+              {isPending ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  </TableRow>
+                ))
+              ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-gray-500">
                     No users found.

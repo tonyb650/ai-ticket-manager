@@ -57,6 +57,14 @@ app.get("/api/me", requireAuth, (req, res) => {
 });
 
 app.get("/api/users", requireAuth, requireAdmin, async (_req, res) => {
+  //   setTimeout(() => {
+  //   console.log("Waiting")
+  //   prisma.user.findMany({
+  //     select: { id: true, name: true, email: true, role: true, createdAt: true },
+  //     orderBy: { createdAt: "desc" },
+  //   }).then(result => res.json({ users: result }))
+  //   ;
+  // }, 2000)
   const users = await prisma.user.findMany({
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: "desc" },
