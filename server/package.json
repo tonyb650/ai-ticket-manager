@@ -23,10 +23,12 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "7.3.0",
     "better-auth": "^1.6.8",
+    "core": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.4.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "zod": "^4.4.3"
   }
 }

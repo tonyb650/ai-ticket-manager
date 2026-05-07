@@ -4,11 +4,12 @@ A helpdesk application with a React frontend and Express backend.
 
 ## Project structure
 
-Bun workspace monorepo with three packages:
+Bun workspace monorepo with four packages:
 
 ```
 client/   React + Vite frontend
 server/   Express + Prisma backend
+core/     Shared code (Zod schemas, types) imported by client and server
 e2e/      Playwright end-to-end tests
 ```
 
@@ -95,6 +96,14 @@ Copy `server/.env.example` to `server/.env` and fill in values before starting. 
 **Tooling:** Bun (package manager + runtime), TypeScript
 
 ## Key conventions
+
+### Shared validation schemas live in `core`
+Define Zod schemas (and any types/constants used on **both** sides of the wire) in the `core` package — `core/src/schemas/<thing>.ts`, re-exported from `core/src/index.ts`. Import them as `import { createUserSchema } from "core"` in both `client` and `server`. This keeps the form-side validation and the request-body validation guaranteed-identical: when the rules change, both sides update in one edit.
+
+The `core` package exports TypeScript source directly via `package.json` `exports` (`./src/index.ts`) — Bun, Vite, and `tsc` all resolve it without a build step. Don't define request/response Zod schemas inline in `server/src/routes/...` or `client/src/pages/...`; promote them to `core` as soon as they're shared.
+
+### Prefer enums over magic strings
+When a value comes from a fixed set defined elsewhere (Prisma enums, Better Auth provider IDs, etc.), import and use the enum/constant rather than re-typing the string literal. For Prisma enums, import from `@prisma/client` — e.g. use `Role.agent` instead of `"agent"` (see `server/src/scripts/seed.ts` and `server/src/index.ts`). This keeps call sites in sync with the schema and lets renames be caught by the type checker.
 
 ### Client path alias
 `@/` maps to `client/src/`. Use it for all internal imports (e.g. `@/components/ui/button`).

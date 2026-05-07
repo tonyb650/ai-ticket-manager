@@ -4,9 +4,8 @@ import cors from "cors";
 import { rateLimit } from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
-import prisma from "./lib/prisma";
 import { requireAuth } from "./middleware/requireAuth";
-import { requireAdmin } from "./middleware/requireAdmin";
+import usersRouter from "./routes/users";
 
 if (process.env.NODE_ENV === "production") {
   const secret = process.env.BETTER_AUTH_SECRET;
@@ -56,21 +55,7 @@ app.get("/api/me", requireAuth, (req, res) => {
   res.json({ id, name, email, role });
 });
 
-app.get("/api/users", requireAuth, requireAdmin, async (_req, res) => {
-  //   setTimeout(() => {
-  //   console.log("Waiting")
-  //   prisma.user.findMany({
-  //     select: { id: true, name: true, email: true, role: true, createdAt: true },
-  //     orderBy: { createdAt: "desc" },
-  //   }).then(result => res.json({ users: result }))
-  //   ;
-  // }, 2000)
-  const users = await prisma.user.findMany({
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: { createdAt: "desc" },
-  });
-  res.json({ users });
-});
+app.use("/api/users", usersRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
