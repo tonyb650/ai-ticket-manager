@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
-import CreateUserDialog from "./CreateUserDialog";
+import CreateUserForm from "./CreateUserForm";
 
 vi.mock("axios");
 
@@ -16,19 +16,16 @@ const VALID_INPUT = {
   password: "longenough",
 };
 
-function renderDialog({
-  open = true,
-  onOpenChange = vi.fn(),
-}: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
+function renderForm({ onClose = vi.fn() }: { onClose?: () => void } = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <CreateUserDialog open={open} onOpenChange={onOpenChange} />
+      <CreateUserForm onClose={onClose} />
     </QueryClientProvider>,
   );
-  return { ...utils, queryClient, onOpenChange };
+  return { ...utils, queryClient, onClose };
 }
 
 async function fillForm(
@@ -40,24 +37,18 @@ async function fillForm(
   await user.type(screen.getByLabelText(/password/i), values.password);
 }
 
-describe("<CreateUserDialog />", () => {
+describe("<CreateUserForm />", () => {
   beforeEach(() => {
     mockedPost.mockReset();
     mockedIsAxiosError.mockReset();
-    // Treat any thrown value with a `.response` property as an axios error.
     mockedIsAxiosError.mockImplementation(
       (err: unknown): err is import("axios").AxiosError =>
         typeof err === "object" && err !== null && "response" in err,
     );
   });
 
-  it("renders nothing in the document when closed", () => {
-    renderDialog({ open: false });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("renders all fields and action buttons when open", () => {
-    renderDialog();
+  it("renders all fields and action buttons", () => {
+    renderForm();
     expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
@@ -70,7 +61,7 @@ describe("<CreateUserDialog />", () => {
   describe("validation", () => {
     it("shows an error when the name is too short and does not submit", async () => {
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await user.type(screen.getByLabelText(/name/i), "ab");
       await user.type(screen.getByLabelText(/email/i), VALID_INPUT.email);
@@ -85,7 +76,7 @@ describe("<CreateUserDialog />", () => {
 
     it("shows an error when the email is invalid and does not submit", async () => {
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await user.type(screen.getByLabelText(/name/i), VALID_INPUT.name);
       await user.type(screen.getByLabelText(/email/i), "not-an-email");
@@ -100,7 +91,7 @@ describe("<CreateUserDialog />", () => {
 
     it("shows an error when the password is too short and does not submit", async () => {
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await user.type(screen.getByLabelText(/name/i), VALID_INPUT.name);
       await user.type(screen.getByLabelText(/email/i), VALID_INPUT.email);
@@ -118,7 +109,7 @@ describe("<CreateUserDialog />", () => {
     it("posts the form values to /api/users", async () => {
       mockedPost.mockResolvedValueOnce({ data: { user: { id: "1" } } });
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
@@ -128,18 +119,18 @@ describe("<CreateUserDialog />", () => {
       });
     });
 
-    it("invalidates the users query and closes the dialog on success", async () => {
+    it("invalidates the users query and calls onClose on success", async () => {
       mockedPost.mockResolvedValueOnce({ data: { user: { id: "1" } } });
-      const onOpenChange = vi.fn();
+      const onClose = vi.fn();
       const user = userEvent.setup();
-      const { queryClient } = renderDialog({ onOpenChange });
+      const { queryClient } = renderForm({ onClose });
       const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
 
       await waitFor(() => {
-        expect(onOpenChange).toHaveBeenCalledWith(false);
+        expect(onClose).toHaveBeenCalledTimes(1);
       });
       expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["users"] });
     });
@@ -152,7 +143,7 @@ describe("<CreateUserDialog />", () => {
         }),
       );
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
@@ -185,7 +176,7 @@ describe("<CreateUserDialog />", () => {
       mockedPost.mockRejectedValueOnce(conflict);
 
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
@@ -199,7 +190,7 @@ describe("<CreateUserDialog />", () => {
       mockedPost.mockRejectedValueOnce(new Error("network down"));
 
       const user = userEvent.setup();
-      renderDialog();
+      renderForm();
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
@@ -209,29 +200,29 @@ describe("<CreateUserDialog />", () => {
       );
     });
 
-    it("does not close the dialog on error", async () => {
+    it("does not call onClose on error", async () => {
       mockedPost.mockRejectedValueOnce(new Error("network down"));
-      const onOpenChange = vi.fn();
+      const onClose = vi.fn();
       const user = userEvent.setup();
-      renderDialog({ onOpenChange });
+      renderForm({ onClose });
 
       await fillForm(user);
       await user.click(screen.getByRole("button", { name: /create user/i }));
 
       expect(await screen.findByRole("alert")).toBeInTheDocument();
-      expect(onOpenChange).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
     });
   });
 
   describe("cancel", () => {
-    it("calls onOpenChange(false) when the Cancel button is clicked", async () => {
-      const onOpenChange = vi.fn();
+    it("calls onClose when the Cancel button is clicked", async () => {
+      const onClose = vi.fn();
       const user = userEvent.setup();
-      renderDialog({ onOpenChange });
+      renderForm({ onClose });
 
       await user.click(screen.getByRole("button", { name: /cancel/i }));
 
-      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 });
