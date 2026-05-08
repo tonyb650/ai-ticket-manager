@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
 import Users from "./Users";
@@ -88,6 +89,68 @@ describe("<Users />", () => {
     expect(adminBadge).toHaveAttribute("data-variant", "default");
     expect(agentBadge).toHaveAttribute("data-slot", "badge");
     expect(agentBadge).toHaveAttribute("data-variant", "secondary");
+  });
+
+  describe("create user dialog", () => {
+    beforeEach(() => {
+      mockedGet.mockResolvedValue({ data: { users: [] } });
+    });
+
+    it("does not render the dialog by default", () => {
+      renderUsers();
+      expect(
+        screen.queryByRole("dialog", { name: /new user/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("opens the dialog when the New user button is clicked", async () => {
+      const user = userEvent.setup();
+      renderUsers();
+
+      await user.click(screen.getByRole("button", { name: /new user/i }));
+
+      expect(
+        await screen.findByRole("dialog", { name: /new user/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("closes the dialog when Escape is pressed", async () => {
+      const user = userEvent.setup();
+      renderUsers();
+
+      await user.click(screen.getByRole("button", { name: /new user/i }));
+      expect(
+        await screen.findByRole("dialog", { name: /new user/i }),
+      ).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: /new user/i }),
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it("closes the dialog when clicking outside (on the overlay)", async () => {
+      const user = userEvent.setup();
+      renderUsers();
+
+      await user.click(screen.getByRole("button", { name: /new user/i }));
+      expect(
+        await screen.findByRole("dialog", { name: /new user/i }),
+      ).toBeInTheDocument();
+
+      const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+      expect(overlay).not.toBeNull();
+      await user.click(overlay as HTMLElement);
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole("dialog", { name: /new user/i }),
+        ).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe("error state", () => {

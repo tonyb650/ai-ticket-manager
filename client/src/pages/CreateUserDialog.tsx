@@ -49,7 +49,9 @@ export default function CreateUserDialog({ open, onOpenChange }: Props) {
     },
   });
 
-  const onSubmit = handleSubmit((values) => createUser.mutateAsync(values));
+  const onSubmit = handleSubmit((values) =>
+    createUser.mutateAsync(values).catch(() => {}),
+  );
 
   return (
     <Dialog
