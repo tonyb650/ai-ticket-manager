@@ -4,97 +4,130 @@ import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { createUserSchema, type CreateUserInput } from "core";
+import {
+  createUserSchema,
+  updateUserSchema,
+  type CreateUserInput,
+} from "core";
 import { useForm } from "react-hook-form";
+import type { User } from "./UsersTable";
+
+type FormValues = CreateUserInput;
 
 type Props = {
+  user?: User;
   onClose: () => void;
 };
 
-export default function CreateUserForm({ onClose }: Props) {
+export default function UserForm({ user, onClose }: Props) {
+  const isEdit = user !== undefined;
   const queryClient = useQueryClient();
   const {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting }
-  } = useForm<CreateUserInput>({
-    resolver: zodResolver(createUserSchema),
-    defaultValues: { name: "", email: "", password: "" }
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(isEdit ? updateUserSchema : createUserSchema),
+    defaultValues: {
+      name: user?.name ?? "",
+      email: user?.email ?? "",
+      password: "",
+    },
   });
 
-  const createUser = useMutation({
-    mutationFn: (values: CreateUserInput) =>
-      axios.post("/api/users", values).then((r) => r.data.user),
+  const submitUser = useMutation({
+    mutationFn: async (values: FormValues) => {
+      if (isEdit) {
+        const res = await axios.patch(`/api/users/${user.id}`, values);
+        return res.data.user;
+      }
+      const res = await axios.post("/api/users", values);
+      return res.data.user;
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       onClose();
     },
     onError: (err) => {
-      const message =
-        axios.isAxiosError(err) && err.response?.status === 409
-          ? "Email already in use"
-          : "Failed to create user";
-      setError("root", { message });
-    }
+      const isConflict =
+        axios.isAxiosError(err) && err.response?.status === 409;
+      const fallback = isEdit ? "Failed to update user" : "Failed to create user";
+      setError("root", {
+        message: isConflict ? "Email already in use" : fallback,
+      });
+    },
   });
 
   const onSubmit = handleSubmit((values) =>
-    createUser.mutateAsync(values).catch(() => {})
+    submitUser.mutateAsync(values).catch(() => {}),
   );
+
+  const submitLabel = isEdit
+    ? isSubmitting
+      ? "Saving…"
+      : "Save changes"
+    : isSubmitting
+      ? "Creating…"
+      : "Create user";
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       <div className="space-y-1">
-        <Label htmlFor="create-user-name">Name</Label>
+        <Label htmlFor="user-form-name">Name</Label>
         <Input
-          id="create-user-name"
+          id="user-form-name"
           autoComplete="name"
           aria-invalid={errors.name ? true : undefined}
-          aria-describedby={errors.name ? "create-user-name-error" : undefined}
+          aria-describedby={errors.name ? "user-form-name-error" : undefined}
           {...register("name")}
         />
         {errors.name && (
-          <p id="create-user-name-error" className="text-sm text-destructive">
+          <p id="user-form-name-error" className="text-sm text-destructive">
             {errors.name.message}
           </p>
         )}
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="create-user-email">Email</Label>
+        <Label htmlFor="user-form-email">Email</Label>
         <Input
-          id="create-user-email"
+          id="user-form-email"
           type="email"
           autoComplete="email"
           aria-invalid={errors.email ? true : undefined}
-          aria-describedby={
-            errors.email ? "create-user-email-error" : undefined
-          }
+          aria-describedby={errors.email ? "user-form-email-error" : undefined}
           {...register("email")}
         />
         {errors.email && (
-          <p id="create-user-email-error" className="text-sm text-destructive">
+          <p id="user-form-email-error" className="text-sm text-destructive">
             {errors.email.message}
           </p>
         )}
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="create-user-password">Password</Label>
+        <Label htmlFor="user-form-password">
+          Password
+          {isEdit && (
+            <span className="ml-1 text-muted-foreground font-normal">
+              (leave blank to keep current)
+            </span>
+          )}
+        </Label>
         <Input
-          id="create-user-password"
+          id="user-form-password"
           type="password"
           autoComplete="new-password"
           aria-invalid={errors.password ? true : undefined}
           aria-describedby={
-            errors.password ? "create-user-password-error" : undefined
+            errors.password ? "user-form-password-error" : undefined
           }
           {...register("password")}
         />
         {errors.password && (
           <p
-            id="create-user-password-error"
+            id="user-form-password-error"
             className="text-sm text-destructive"
           >
             {errors.password.message}
@@ -117,7 +150,7 @@ export default function CreateUserForm({ onClose }: Props) {
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating…" : "Create user"}
+          {submitLabel}
         </Button>
       </div>
     </form>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import CreateUserForm from "./CreateUserForm";
-import UsersTable from "./UsersTable";
+import UserForm from "./UserForm";
+import UsersTable, { type User } from "./UsersTable";
 import {
   Dialog,
   DialogContent,
@@ -9,26 +9,35 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 
+type DialogState = { mode: "create" } | { mode: "edit"; user: User } | null;
+
 export default function Users() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>(null);
+
+  const close = () => setDialog(null);
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-        <Button onClick={() => setDialogOpen(true)}>New user</Button>
+        <Button onClick={() => setDialog({ mode: "create" })}>New user</Button>
       </div>
 
       <div className="mt-6">
-        <UsersTable />
+        <UsersTable onEdit={(user) => setDialog({ mode: "edit", user })} />
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialog !== null} onOpenChange={(next) => !next && close()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New user</DialogTitle>
+            <DialogTitle>
+              {dialog?.mode === "edit" ? "Edit user" : "New user"}
+            </DialogTitle>
           </DialogHeader>
-          <CreateUserForm onClose={() => setDialogOpen(false)} />
+          <UserForm
+            user={dialog?.mode === "edit" ? dialog.user : undefined}
+            onClose={close}
+          />
         </DialogContent>
       </Dialog>
     </div>
