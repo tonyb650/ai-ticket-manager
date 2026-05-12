@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import DeleteUserDialog from "./DeleteUserDialog";
 import UserForm from "./UserForm";
 import UsersTable, { type User } from "./UsersTable";
 import {
@@ -9,12 +10,18 @@ import {
   DialogTitle
 } from "@/components/ui/dialog";
 
-type DialogState = { mode: "create" } | { mode: "edit"; user: User } | null;
+type DialogState =
+  | { mode: "create" }
+  | { mode: "edit"; user: User }
+  | { mode: "delete"; user: User }
+  | null;
 
 export default function Users() {
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const close = () => setDialog(null);
+
+  const formOpen = dialog?.mode === "create" || dialog?.mode === "edit";
 
   return (
     <div className="p-8">
@@ -24,10 +31,13 @@ export default function Users() {
       </div>
 
       <div className="mt-6">
-        <UsersTable onEdit={(user) => setDialog({ mode: "edit", user })} />
+        <UsersTable
+          onEdit={(user) => setDialog({ mode: "edit", user })}
+          onDelete={(user) => setDialog({ mode: "delete", user })}
+        />
       </div>
 
-      <Dialog open={dialog !== null} onOpenChange={(next) => !next && close()}>
+      <Dialog open={formOpen} onOpenChange={(next) => !next && close()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
@@ -40,6 +50,14 @@ export default function Users() {
           />
         </DialogContent>
       </Dialog>
+
+      {dialog?.mode === "delete" && (
+        <DeleteUserDialog
+          user={dialog.user}
+          open
+          onOpenChange={(next) => !next && close()}
+        />
+      )}
     </div>
   );
 }

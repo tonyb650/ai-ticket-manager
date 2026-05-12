@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
+import { Role } from "core";
 import UserForm from "./UserForm";
 import type { User } from "./UsersTable";
 
@@ -22,7 +23,7 @@ const EXISTING_USER: User = {
   id: "user-1",
   name: "Existing User",
   email: "existing@example.com",
-  role: "agent",
+  role: Role.agent,
   createdAt: "2024-01-15T00:00:00.000Z",
 };
 

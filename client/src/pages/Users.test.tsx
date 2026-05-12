@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
+import { Role } from "core";
 import Users from "./Users";
 
 vi.mock("axios");
@@ -12,14 +13,14 @@ const MOCK_USERS = [
     id: "1",
     name: "Alice Admin",
     email: "alice@example.com",
-    role: "admin",
+    role: Role.admin,
     createdAt: "2024-01-15T00:00:00.000Z",
   },
   {
     id: "2",
     name: "Adam Agent",
     email: "adam@example.com",
-    role: "agent",
+    role: Role.agent,
     createdAt: "2024-06-20T00:00:00.000Z",
   },
 ] as const;
@@ -82,8 +83,8 @@ describe("<Users />", () => {
     mockedGet.mockResolvedValueOnce({ data: { users: MOCK_USERS } });
     renderUsers();
 
-    const adminBadge = await screen.findByText("admin");
-    const agentBadge = screen.getByText("agent");
+    const adminBadge = await screen.findByText(Role.admin);
+    const agentBadge = screen.getByText(Role.agent);
 
     expect(adminBadge).toHaveAttribute("data-slot", "badge");
     expect(adminBadge).toHaveAttribute("data-variant", "default");
@@ -150,6 +151,45 @@ describe("<Users />", () => {
           screen.queryByRole("dialog", { name: /new user/i }),
         ).not.toBeInTheDocument();
       });
+    });
+  });
+
+  describe("delete user button", () => {
+    it("renders a delete button for agent rows", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { users: MOCK_USERS } });
+      renderUsers();
+
+      expect(
+        await screen.findByRole("button", { name: /delete adam agent/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("does not render a delete button for admin rows", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { users: MOCK_USERS } });
+      renderUsers();
+
+      // Wait for the table to populate.
+      await screen.findByText("Alice Admin");
+      expect(
+        screen.queryByRole("button", { name: /delete alice admin/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("opens the confirmation alert dialog when a delete button is clicked", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { users: MOCK_USERS } });
+      const user = userEvent.setup();
+      renderUsers();
+
+      await user.click(
+        await screen.findByRole("button", { name: /delete adam agent/i }),
+      );
+
+      const dialog = await screen.findByRole("alertdialog", {
+        name: /delete this user\?/i,
+      });
+      expect(dialog).toBeInTheDocument();
+      expect(dialog).toHaveTextContent(/adam agent/i);
+      expect(dialog).toHaveTextContent(/adam@example\.com/i);
     });
   });
 

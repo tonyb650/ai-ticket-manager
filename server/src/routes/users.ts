@@ -26,6 +26,7 @@ function parseBody<T extends z.ZodTypeAny>(
 
 usersRouter.get("/", async (_req, res) => {
   const users = await prisma.user.findMany({
+    where: { deletedAt: null },
     select: { id: true, name: true, email: true, role: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
@@ -75,7 +76,9 @@ usersRouter.patch("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, email, password } = data;
 
-  const existing = await prisma.user.findUnique({ where: { id } });
+  const existing = await prisma.user.findFirst({
+    where: { id, deletedAt: null },
+  });
   if (!existing) {
     res.status(404).json({ error: "User not found" });
     return;
@@ -113,6 +116,31 @@ usersRouter.patch("/:id", async (req, res) => {
       createdAt: updated.createdAt,
     },
   });
+});
+
+usersRouter.delete("/:id", async (req, res) => {
+  const { id } = req.params;
+  const existing = await prisma.user.findFirst({
+    where: { id, deletedAt: null },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+  if (existing.role === Role.admin) {
+    res.status(403).json({ error: "Admin users cannot be deleted" });
+    return;
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    }),
+    prisma.session.deleteMany({ where: { userId: id } }),
+  ]);
+
+  res.status(204).end();
 });
 
 export default usersRouter;

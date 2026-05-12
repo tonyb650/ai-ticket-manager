@@ -103,7 +103,10 @@ Define Zod schemas (and any types/constants used on **both** sides of the wire) 
 The `core` package exports TypeScript source directly via `package.json` `exports` (`./src/index.ts`) — Bun, Vite, and `tsc` all resolve it without a build step. Don't define request/response Zod schemas inline in `server/src/routes/...` or `client/src/pages/...`; promote them to `core` as soon as they're shared.
 
 ### Prefer enums over magic strings
-When a value comes from a fixed set defined elsewhere (Prisma enums, Better Auth provider IDs, etc.), import and use the enum/constant rather than re-typing the string literal. For Prisma enums, import from `@prisma/client` — e.g. use `Role.agent` instead of `"agent"` (see `server/src/scripts/seed.ts` and `server/src/index.ts`). This keeps call sites in sync with the schema and lets renames be caught by the type checker.
+When a value comes from a fixed set defined elsewhere (Prisma enums, Better Auth provider IDs, etc.), import and use the enum/constant rather than re-typing the string literal. This keeps call sites in sync with the schema and lets renames be caught by the type checker.
+
+- **Server:** for Prisma enums, import from `@prisma/client` — e.g. `Role.agent` instead of `"agent"` (see `server/src/scripts/seed.ts` and `server/src/index.ts`).
+- **Client:** the client can't pull from `@prisma/client`, so any role/enum value that crosses the wire is mirrored in `core`. Import the constant from `"core"` and compare against `Role.admin` / `Role.agent` rather than the string literals — e.g. `session.user.role === Role.admin`, `user.role !== Role.admin`. The mirror lives in `core/src/schemas/user.ts`; when adding a new enum to the Prisma schema, add a matching `as const` object + type to `core` so the client has a single source of truth.
 
 ### Client path alias
 `@/` maps to `client/src/`. Use it for all internal imports (e.g. `@/components/ui/button`).

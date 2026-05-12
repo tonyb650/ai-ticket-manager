@@ -1,6 +1,7 @@
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { Role } from "core";
+import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,8 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type Role = "admin" | "agent";
-
 export type User = {
   id: string;
   name: string;
@@ -25,9 +24,10 @@ export type User = {
 
 type Props = {
   onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
 };
 
-export default function UsersTable({ onEdit }: Props) {
+export default function UsersTable({ onEdit, onDelete }: Props) {
   const { data: users, error, isPending } = useQuery({
     queryKey: ["users"],
     queryFn: ({ signal }) =>
@@ -78,7 +78,7 @@ export default function UsersTable({ onEdit }: Props) {
               <TableCell className="font-medium">{user.name}</TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>
-                <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                <Badge variant={user.role === Role.admin ? "default" : "secondary"}>
                   {user.role}
                 </Badge>
               </TableCell>
@@ -94,6 +94,16 @@ export default function UsersTable({ onEdit }: Props) {
                 >
                   <Pencil />
                 </Button>
+                {user.role !== Role.admin && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => onDelete(user)}
+                    aria-label={`Delete ${user.name}`}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
               </TableCell>
             </TableRow>
           ))
