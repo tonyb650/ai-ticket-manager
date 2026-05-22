@@ -6,6 +6,8 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
 import usersRouter from "./routes/users";
+import webhooksRouter from "./routes/webhooks";
+import ticketsRouter from "./routes/tickets";
 
 if (process.env.NODE_ENV === "production") {
   const secret = process.env.BETTER_AUTH_SECRET;
@@ -44,7 +46,7 @@ authHandlers.push(toNodeHandler(auth));
 // Better Auth handler must come before express.json()
 app.all("/api/auth/*splat", ...authHandlers);
 
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok" });
@@ -56,6 +58,8 @@ app.get("/api/me", requireAuth, (req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/webhooks", webhooksRouter);
+app.use("/api/tickets", ticketsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

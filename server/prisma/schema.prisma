@@ -13,17 +13,18 @@ enum Role {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  role          Role      @default(agent)
-  deletedAt     DateTime?
-  sessions      Session[]
-  accounts      Account[]
+  id               String    @id
+  name             String
+  email            String
+  emailVerified    Boolean   @default(false)
+  image            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  role             Role      @default(agent)
+  deletedAt        DateTime?
+  sessions         Session[]
+  accounts         Account[]
+  assignedTickets  Ticket[]
 
   @@unique([email])
   @@map("user")
@@ -75,4 +76,36 @@ model Verification {
 
   @@index([identifier])
   @@map("verification")
+}
+
+enum TicketStatus {
+  open
+  closed
+}
+
+enum TicketCategory {
+  general_question
+  technical_question
+  refund_request
+}
+
+model Ticket {
+  id             Int             @id @default(autoincrement())
+  subject        String
+  body           String
+  bodyHtml       String?
+  fromEmail      String
+  fromName       String?
+  category       TicketCategory?
+  messageId      String?
+  inReplyTo      String?
+  status         TicketStatus    @default(open)
+  assignedToId   String?
+  assignedTo     User?           @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([createdAt])
+  @@index([assignedToId])
+  @@map("ticket")
 }
