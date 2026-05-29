@@ -15,6 +15,25 @@ export const TicketCategory = {
 
 export type TicketCategory = (typeof TicketCategory)[keyof typeof TicketCategory];
 
+export const ticketSortFields = [
+  "id",
+  "subject",
+  "fromEmail",
+  "category",
+  "status",
+  "createdAt",
+] as const;
+export type TicketSortField = (typeof ticketSortFields)[number];
+
+export const ticketSortOrders = ["asc", "desc"] as const;
+export type TicketSortOrder = (typeof ticketSortOrders)[number];
+
+export const ticketsListQuerySchema = z.object({
+  sort: z.enum(ticketSortFields).optional(),
+  order: z.enum(ticketSortOrders).optional(),
+});
+export type TicketsListQuery = z.infer<typeof ticketsListQuerySchema>;
+
 export const inboundEmailSchema = z.object({
   from: z.email(),
   fromName: z.string().trim().optional(),

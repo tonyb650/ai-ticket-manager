@@ -252,3 +252,178 @@ test.describe("Tickets page — empty and populated states", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 6. Server-side sorting
+//
+// Seeds 3 tickets with UID-prefixed subjects chosen so alphabetical order is
+// unambiguous: "AAA …", "MMM …", "ZZZ …".  Sequential postTicket() calls also
+// guarantee monotonically increasing createdAt values (A < B < C).
+//
+// All three tests share one beforeEach/afterEach fixture that seeds and cleans
+// up the rows.  The describe block re-uses ADMIN_AUTH_FILE storage state so no
+// manual login is needed.
+// ---------------------------------------------------------------------------
+
+test.describe("Tickets page — server-side sorting", () => {
+  test.use({ storageState: ADMIN_AUTH_FILE });
+
+  // Shared ticket IDs — populated in beforeEach, cleaned up in afterEach.
+  let idA: number;
+  let idB: number;
+  let idC: number;
+  let subjectA: string;
+  let subjectB: string;
+  let subjectC: string;
+
+  test.beforeEach(async () => {
+    const tag = uid();
+    // AAA / MMM / ZZZ prefixes guarantee unambiguous alphabetical ordering.
+    subjectA = `AAA sort-test ${tag}`;
+    subjectB = `MMM sort-test ${tag}`;
+    subjectC = `ZZZ sort-test ${tag}`;
+
+    // Sequential awaits ensure A.createdAt < B.createdAt < C.createdAt.
+    idA = await postTicket(`sort-a-${tag}@example.com`, subjectA);
+    idB = await postTicket(`sort-b-${tag}@example.com`, subjectB);
+    idC = await postTicket(`sort-c-${tag}@example.com`, subjectC);
+  });
+
+  test.afterEach(() => {
+    deleteTickets([idA, idB, idC]);
+  });
+
+  test("should reorder rows ascending then descending when Subject header is clicked", async ({
+    page,
+  }) => {
+    await gotoTickets(page);
+
+    // All three rows must be present before we assert order.
+    await expect(page.getByText(subjectA)).toBeVisible();
+    await expect(page.getByText(subjectB)).toBeVisible();
+    await expect(page.getByText(subjectC)).toBeVisible();
+
+    const subjectHeader = page.getByRole("columnheader", { name: "Subject" });
+
+    // --- First click: ascending by subject ---
+    await subjectHeader.click();
+
+    // aria-sort updates synchronously with local state, but the row data only
+    // updates once the refetch resolves.  Wait for the heading attribute AND
+    // for subjectA to be visible (it would be the first row in asc order and
+    // confirms the new fetch has landed before we read row positions).
+    await expect(subjectHeader).toHaveAttribute("aria-sort", "ascending");
+    await expect(page.getByText(subjectA)).toBeVisible();
+
+    const ascRows = await page.getByRole("row").allTextContents();
+    const posA_asc = ascRows.findIndex((t) => t.includes(subjectA));
+    const posB_asc = ascRows.findIndex((t) => t.includes(subjectB));
+    const posC_asc = ascRows.findIndex((t) => t.includes(subjectC));
+
+    // AAA < MMM < ZZZ in ascending order.
+    expect(posA_asc).toBeGreaterThan(0);
+    expect(posA_asc).toBeLessThan(posB_asc);
+    expect(posB_asc).toBeLessThan(posC_asc);
+
+    // --- Second click: descending by subject ---
+    await subjectHeader.click();
+    await expect(subjectHeader).toHaveAttribute("aria-sort", "descending");
+    // ZZZ should be first in descending order — wait for the fetch to settle.
+    await expect(page.getByText(subjectC)).toBeVisible();
+
+    const descRows = await page.getByRole("row").allTextContents();
+    const posA_desc = descRows.findIndex((t) => t.includes(subjectA));
+    const posB_desc = descRows.findIndex((t) => t.includes(subjectB));
+    const posC_desc = descRows.findIndex((t) => t.includes(subjectC));
+
+    // ZZZ > MMM > AAA in descending order.
+    expect(posC_desc).toBeGreaterThan(0);
+    expect(posC_desc).toBeLessThan(posB_desc);
+    expect(posB_desc).toBeLessThan(posA_desc);
+  });
+
+  test("should reorder rows oldest-first then newest-first when Created header is clicked", async ({
+    page,
+  }) => {
+    await gotoTickets(page);
+
+    // All three rows must be present before we assert order.
+    await expect(page.getByText(subjectA)).toBeVisible();
+    await expect(page.getByText(subjectB)).toBeVisible();
+    await expect(page.getByText(subjectC)).toBeVisible();
+
+    const createdHeader = page.getByRole("columnheader", { name: "Created" });
+
+    // Default sort is createdAt desc — "Created" header already has
+    // aria-sort="descending" on page load.
+    await expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+
+    // Verify default newest-first: C (newest) before A (oldest).
+    const defaultRows = await page.getByRole("row").allTextContents();
+    const posA_default = defaultRows.findIndex((t) => t.includes(subjectA));
+    const posC_default = defaultRows.findIndex((t) => t.includes(subjectC));
+    expect(posC_default).toBeGreaterThan(0);
+    expect(posC_default).toBeLessThan(posA_default); // C (newest) first
+
+    // --- First click: ascending by createdAt (oldest-first) ---
+    await createdHeader.click();
+    // Wait for the header attribute AND for subjectA to be visible — A is the
+    // oldest ticket and should appear first once the fetch resolves.
+    await expect(createdHeader).toHaveAttribute("aria-sort", "ascending");
+    await expect(page.getByText(subjectA)).toBeVisible();
+
+    const ascRows = await page.getByRole("row").allTextContents();
+    const posA_asc = ascRows.findIndex((t) => t.includes(subjectA));
+    const posB_asc = ascRows.findIndex((t) => t.includes(subjectB));
+    const posC_asc = ascRows.findIndex((t) => t.includes(subjectC));
+
+    // A (oldest) < B < C (newest) in ascending order.
+    expect(posA_asc).toBeGreaterThan(0);
+    expect(posA_asc).toBeLessThan(posB_asc);
+    expect(posB_asc).toBeLessThan(posC_asc);
+
+    // --- Second click: back to descending (newest-first) ---
+    await createdHeader.click();
+    // C is the newest and should be first once the descending fetch resolves.
+    await expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+    await expect(page.getByText(subjectC)).toBeVisible();
+
+    const descRows = await page.getByRole("row").allTextContents();
+    const posA_desc = descRows.findIndex((t) => t.includes(subjectA));
+    const posB_desc = descRows.findIndex((t) => t.includes(subjectB));
+    const posC_desc = descRows.findIndex((t) => t.includes(subjectC));
+
+    // C (newest) > B > A (oldest) in descending order.
+    expect(posC_desc).toBeGreaterThan(0);
+    expect(posC_desc).toBeLessThan(posB_desc);
+    expect(posB_desc).toBeLessThan(posA_desc);
+  });
+
+  test("should update aria-sort on the clicked header and clear it on others", async ({
+    page,
+  }) => {
+    await gotoTickets(page);
+
+    // Wait for data to render so the table is fully mounted.
+    await expect(page.getByText(subjectA)).toBeVisible();
+
+    const subjectHeader = page.getByRole("columnheader", { name: "Subject" });
+    const createdHeader = page.getByRole("columnheader", { name: "Created" });
+
+    // Before clicking: default sort is createdAt desc.
+    await expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+    await expect(subjectHeader).toHaveAttribute("aria-sort", "none");
+
+    // Click Subject — it becomes the active sort column (ascending).
+    await subjectHeader.click();
+    await expect(subjectHeader).toHaveAttribute("aria-sort", "ascending");
+
+    // Created is no longer the active sort column.
+    await expect(createdHeader).toHaveAttribute("aria-sort", "none");
+
+    // Click Subject again — it flips to descending.
+    await subjectHeader.click();
+    await expect(subjectHeader).toHaveAttribute("aria-sort", "descending");
+    await expect(createdHeader).toHaveAttribute("aria-sort", "none");
+  });
+});

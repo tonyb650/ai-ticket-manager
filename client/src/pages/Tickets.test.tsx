@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
 import { TicketCategory, TicketStatus } from "core";
@@ -169,6 +170,67 @@ describe("<Tickets />", () => {
 
     await screen.findByText("No category here");
     expect(screen.getByText("—")).toBeInTheDocument();
+  });
+
+  describe("server-side sorting", () => {
+    it("requests createdAt desc by default", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      renderTickets();
+
+      await screen.findByText("Printer broken");
+
+      expect(mockedGet).toHaveBeenCalledTimes(1);
+      expect(mockedGet.mock.calls[0][1]).toMatchObject({
+        params: { sort: "createdAt", order: "desc" },
+      });
+    });
+
+    it("shows a descending chevron on the default-sorted Created header", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      renderTickets();
+
+      await screen.findByText("Printer broken");
+
+      const createdHeader = screen.getByRole("columnheader", { name: /created/i });
+      expect(createdHeader).toHaveAttribute("aria-sort", "descending");
+      expect(createdHeader.querySelector("svg")).not.toBeNull();
+    });
+
+    it("refetches with ?sort=subject&order=asc when the Subject header is clicked", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByRole("columnheader", { name: /subject/i }));
+
+      await waitFor(() => {
+        expect(mockedGet).toHaveBeenCalledTimes(2);
+      });
+      expect(mockedGet.mock.calls[1][1]).toMatchObject({
+        params: { sort: "subject", order: "asc" },
+      });
+    });
+
+    it("flips to desc when the same column header is clicked twice", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+
+      await screen.findByText("Printer broken");
+
+      const subjectHeader = screen.getByRole("columnheader", { name: /subject/i });
+      await user.click(subjectHeader);
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+
+      await user.click(subjectHeader);
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(3));
+
+      expect(mockedGet.mock.calls[2][1]).toMatchObject({
+        params: { sort: "subject", order: "desc" },
+      });
+    });
   });
 
   describe("error state", () => {
