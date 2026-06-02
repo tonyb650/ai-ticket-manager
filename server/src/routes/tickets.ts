@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { ticketsListQuerySchema } from "core";
+import { Prisma } from "@prisma/client";
+import { ticketsListQuerySchema, UNCATEGORIZED } from "core";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -13,10 +14,21 @@ ticketsRouter.get("/", async (req, res) => {
     res.status(400).json({ error: "Invalid query", issues: parsed.error.issues });
     return;
   }
-  const { sort, order } = parsed.data;
+  const { sort, order, status, category, search } = parsed.data;
   const orderBy = sort
     ? { [sort]: order ?? "asc" }
     : { createdAt: "desc" as const };
+
+  const where: Prisma.TicketWhereInput = {};
+  if (status) where.status = status;
+  if (category) where.category = category === UNCATEGORIZED ? null : category;
+  if (search) {
+    where.OR = [
+      { subject:   { contains: search, mode: "insensitive" } },
+      { fromEmail: { contains: search, mode: "insensitive" } },
+      { fromName:  { contains: search, mode: "insensitive" } },
+    ];
+  }
 
   const tickets = await prisma.ticket.findMany({
     select: {
@@ -28,6 +40,7 @@ ticketsRouter.get("/", async (req, res) => {
       status: true,
       createdAt: true,
     },
+    where,
     orderBy,
   });
   res.json({ tickets });

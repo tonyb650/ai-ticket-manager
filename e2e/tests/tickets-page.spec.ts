@@ -427,3 +427,245 @@ test.describe("Tickets page — server-side sorting", () => {
     await expect(createdHeader).toHaveAttribute("aria-sort", "none");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 7. Server-side filtering
+//
+// Each test seeds its own UID-tagged tickets and cleans them up in afterEach.
+// Status overrides are applied via direct SQL UPDATE because the inbound-email
+// webhook always creates tickets as "open" (no status field in the schema).
+// Category can be left unset (null) by omitting the override, since the AI
+// classifier is not part of the e2e stack.
+// ---------------------------------------------------------------------------
+
+test.describe("Tickets page — server-side filtering", () => {
+  test.use({ storageState: ADMIN_AUTH_FILE });
+
+  // ---------------------------------------------------------------------------
+  // Test 1: Status filter
+  // ---------------------------------------------------------------------------
+
+  test("should show only open tickets when Open is selected and only closed tickets when Closed is selected", async ({
+    page,
+  }) => {
+    const tag = uid();
+    const subjectOpen = `Filter-Open ${tag}`;
+    const subjectClosed = `Filter-Closed ${tag}`;
+
+    const idOpen = await postTicket(`filter-open-${tag}@example.com`, subjectOpen);
+    const idClosed = await postTicket(`filter-closed-${tag}@example.com`, subjectClosed);
+
+    // Close the second ticket via direct SQL.
+    spawnSync(
+      "psql",
+      [TEST_DATABASE_URL, "-c", `UPDATE ticket SET status = 'closed' WHERE id = ${idClosed};`],
+      { stdio: "inherit" },
+    );
+
+    try {
+      await gotoTickets(page);
+
+      // Both tickets visible with default "All statuses".
+      await expect(page.getByText(subjectOpen)).toBeVisible();
+      await expect(page.getByText(subjectClosed)).toBeVisible();
+
+      // Select "Open" — only the open ticket should be visible.
+      await page.getByLabel("Filter by status").click();
+      await page.getByRole("option", { name: "Open" }).click();
+
+      await expect(page.getByText(subjectOpen)).toBeVisible();
+      await expect(page.getByText(subjectClosed)).not.toBeVisible();
+
+      // Select "Closed" — only the closed ticket should be visible.
+      await page.getByLabel("Filter by status").click();
+      await page.getByRole("option", { name: "Closed" }).click();
+
+      await expect(page.getByText(subjectClosed)).toBeVisible();
+      await expect(page.getByText(subjectOpen)).not.toBeVisible();
+    } finally {
+      deleteTickets([idOpen, idClosed]);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 2: Uncategorized filter
+  // ---------------------------------------------------------------------------
+
+  test("should show only uncategorized tickets when Uncategorized is selected", async ({
+    page,
+  }) => {
+    const tag = uid();
+    const subjectUncategorized = `Filter-Uncategorized ${tag}`;
+    const subjectTechnical = `Filter-Technical ${tag}`;
+
+    // Omitting category leaves it null — no AI classifier in the e2e stack.
+    const idUncategorized = await postTicket(
+      `filter-uncat-${tag}@example.com`,
+      subjectUncategorized,
+    );
+    const idTechnical = await postTicket(
+      `filter-tech-${tag}@example.com`,
+      subjectTechnical,
+      { category: "technical_question" },
+    );
+
+    try {
+      await gotoTickets(page);
+
+      // Both tickets visible with default "All categories".
+      await expect(page.getByText(subjectUncategorized)).toBeVisible();
+      await expect(page.getByText(subjectTechnical)).toBeVisible();
+
+      // Select "Uncategorized" — only the null-category ticket should be visible.
+      await page.getByLabel("Filter by category").click();
+      await page.getByRole("option", { name: "Uncategorized" }).click();
+
+      await expect(page.getByText(subjectUncategorized)).toBeVisible();
+      await expect(page.getByText(subjectTechnical)).not.toBeVisible();
+    } finally {
+      deleteTickets([idUncategorized, idTechnical]);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 3: Search filter
+  // ---------------------------------------------------------------------------
+
+  test("should show only matching tickets when a search term is typed", async ({
+    page,
+  }) => {
+    const tag = uid();
+    // Embed the tag in one subject but not the other.
+    const subjectMatch = `SearchMatch-${tag} inquiry`;
+    const subjectNoMatch = `Unrelated ticket ${tag.slice(-4)}z`;
+
+    const idMatch = await postTicket(`filter-search-a-${tag}@example.com`, subjectMatch);
+    const idNoMatch = await postTicket(`filter-search-b-${tag}@example.com`, subjectNoMatch);
+
+    try {
+      await gotoTickets(page);
+
+      // Both visible before searching.
+      await expect(page.getByText(subjectMatch)).toBeVisible();
+      await expect(page.getByText(subjectNoMatch)).toBeVisible();
+
+      // Type the distinctive keyword into the search input.
+      // The expect retry naturally waits past the 300ms debounce.
+      await page.getByLabel("Search tickets").fill(`SearchMatch-${tag}`);
+
+      await expect(page.getByText(subjectMatch)).toBeVisible();
+      await expect(page.getByText(subjectNoMatch)).not.toBeVisible();
+    } finally {
+      deleteTickets([idMatch, idNoMatch]);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 4: Filter + sort compose
+  // ---------------------------------------------------------------------------
+
+  test("should compose status filter with subject sort and exclude filtered-out rows", async ({
+    page,
+  }) => {
+    const tag = uid();
+    const subjectAAA = `AAA filter-sort ${tag}`;
+    const subjectMMM = `MMM filter-sort ${tag}`;
+    const subjectZZZ = `ZZZ filter-sort ${tag}`;
+    const subjectClosed = `Closed filter-sort ${tag}`;
+
+    // Seed three open tickets and one that will be closed.
+    const idAAA = await postTicket(`filter-sort-a-${tag}@example.com`, subjectAAA);
+    const idMMM = await postTicket(`filter-sort-m-${tag}@example.com`, subjectMMM);
+    const idZZZ = await postTicket(`filter-sort-z-${tag}@example.com`, subjectZZZ);
+    const idClosed = await postTicket(`filter-sort-c-${tag}@example.com`, subjectClosed);
+
+    spawnSync(
+      "psql",
+      [TEST_DATABASE_URL, "-c", `UPDATE ticket SET status = 'closed' WHERE id = ${idClosed};`],
+      { stdio: "inherit" },
+    );
+
+    try {
+      await gotoTickets(page);
+
+      // Apply the Open status filter.
+      await page.getByLabel("Filter by status").click();
+      await page.getByRole("option", { name: "Open" }).click();
+
+      // Wait for the closed ticket to disappear before sorting.
+      await expect(page.getByText(subjectClosed)).not.toBeVisible();
+
+      // Click the Subject header to sort ascending.
+      const subjectHeader = page.getByRole("columnheader", { name: "Subject" });
+      await subjectHeader.click();
+      await expect(subjectHeader).toHaveAttribute("aria-sort", "ascending");
+
+      // Wait for all three open tickets to be present.
+      await expect(page.getByText(subjectAAA)).toBeVisible();
+      await expect(page.getByText(subjectMMM)).toBeVisible();
+      await expect(page.getByText(subjectZZZ)).toBeVisible();
+
+      // Closed ticket must still be absent.
+      await expect(page.getByText(subjectClosed)).not.toBeVisible();
+
+      // Assert ascending DOM order: AAA < MMM < ZZZ.
+      const rows = await page.getByRole("row").allTextContents();
+      const posAAA = rows.findIndex((t) => t.includes(subjectAAA));
+      const posMMM = rows.findIndex((t) => t.includes(subjectMMM));
+      const posZZZ = rows.findIndex((t) => t.includes(subjectZZZ));
+
+      expect(posAAA).toBeGreaterThan(0);
+      expect(posAAA).toBeLessThan(posMMM);
+      expect(posMMM).toBeLessThan(posZZZ);
+    } finally {
+      deleteTickets([idAAA, idMMM, idZZZ, idClosed]);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 5: Clear button resets all filters
+  // ---------------------------------------------------------------------------
+
+  test("should reset all filters and hide the Clear button when Clear is clicked", async ({
+    page,
+  }) => {
+    const tag = uid();
+    const subjectOpen = `Clear-Open ${tag}`;
+    const subjectClosed = `Clear-Closed ${tag}`;
+
+    const idOpen = await postTicket(`clear-open-${tag}@example.com`, subjectOpen);
+    const idClosed = await postTicket(`clear-closed-${tag}@example.com`, subjectClosed);
+
+    spawnSync(
+      "psql",
+      [TEST_DATABASE_URL, "-c", `UPDATE ticket SET status = 'closed' WHERE id = ${idClosed};`],
+      { stdio: "inherit" },
+    );
+
+    try {
+      await gotoTickets(page);
+
+      // No active filter — Clear button must not be present.
+      await expect(page.getByRole("button", { name: /clear/i })).not.toBeVisible();
+
+      // Apply the Closed status filter — open ticket disappears.
+      await page.getByLabel("Filter by status").click();
+      await page.getByRole("option", { name: "Closed" }).click();
+
+      await expect(page.getByText(subjectClosed)).toBeVisible();
+      await expect(page.getByText(subjectOpen)).not.toBeVisible();
+
+      // Clear button must now be visible.
+      await expect(page.getByRole("button", { name: /clear/i })).toBeVisible();
+
+      // Click Clear — filter resets, both tickets visible, Clear button gone.
+      await page.getByRole("button", { name: /clear/i }).click();
+
+      await expect(page.getByText(subjectOpen)).toBeVisible();
+      await expect(page.getByText(subjectClosed)).toBeVisible();
+      await expect(page.getByRole("button", { name: /clear/i })).not.toBeVisible();
+    } finally {
+      deleteTickets([idOpen, idClosed]);
+    }
+  });
+});

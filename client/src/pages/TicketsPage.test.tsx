@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import axios from "axios";
 import { TicketCategory, TicketStatus } from "core";
-import Tickets from "./Tickets";
+import TicketsPage from "./TicketsPage";
 
 vi.mock("axios");
 
@@ -53,16 +53,20 @@ function renderTickets() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <Tickets />
+      <TicketsPage />
     </QueryClientProvider>,
   );
 }
 
 const mockedGet = vi.mocked(axios.get);
 
-describe("<Tickets />", () => {
+describe("<TicketsPage />", () => {
   beforeEach(() => {
     mockedGet.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("renders the page heading", () => {
@@ -230,6 +234,117 @@ describe("<Tickets />", () => {
       expect(mockedGet.mock.calls[2][1]).toMatchObject({
         params: { sort: "subject", order: "desc" },
       });
+    });
+  });
+
+  describe("server-side filtering", () => {
+    it("sends no filter params on initial render", async () => {
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      renderTickets();
+
+      await screen.findByText("Printer broken");
+
+      const params = mockedGet.mock.calls[0][1]?.params as Record<string, unknown>;
+      expect(params).not.toHaveProperty("status");
+      expect(params).not.toHaveProperty("category");
+      expect(params).not.toHaveProperty("search");
+    });
+
+    it("refetches with status=open when the Status filter is set", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByLabelText("Filter by status"));
+      await user.click(await screen.findByRole("option", { name: "Open" }));
+
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+      expect(mockedGet.mock.calls[1][1]).toMatchObject({
+        params: { status: "open" },
+      });
+    });
+
+    it("sends category=none when the Uncategorized option is selected", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByLabelText("Filter by category"));
+      await user.click(await screen.findByRole("option", { name: "Uncategorized" }));
+
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+      expect(mockedGet.mock.calls[1][1]).toMatchObject({
+        params: { category: "none" },
+      });
+    });
+
+    it("debounces the search input before refetching with search", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.type(screen.getByLabelText("Search tickets"), "login");
+
+      // Debounce contract: the next refetch carries the *final* value
+      // "login", not the intermediate "l"/"lo"/etc. A broken debounce
+      // would fire per-keystroke and the first refetch's search would be "l".
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+      expect(mockedGet.mock.calls[1][1]).toMatchObject({
+        params: { search: "login" },
+      });
+    });
+
+    it("combines filters with the current sort", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByLabelText("Filter by status"));
+      await user.click(await screen.findByRole("option", { name: "Open" }));
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByRole("columnheader", { name: /subject/i }));
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(3));
+
+      expect(mockedGet.mock.calls[2][1]).toMatchObject({
+        params: { sort: "subject", order: "asc", status: "open" },
+      });
+    });
+
+    it("clears all filters and refetches without filter params", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByLabelText("Filter by status"));
+      await user.click(await screen.findByRole("option", { name: "Closed" }));
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByRole("button", { name: /clear/i }));
+
+      await waitFor(() => expect(mockedGet).toHaveBeenCalledTimes(3));
+      const params = mockedGet.mock.calls[2][1]?.params as Record<string, unknown>;
+      expect(params).not.toHaveProperty("status");
+    });
+
+    it("shows a filter-aware empty state when no tickets match", async () => {
+      mockedGet.mockResolvedValue({ data: { tickets: [] } });
+      const user = userEvent.setup();
+      renderTickets();
+
+      expect(await screen.findByText(/no tickets yet/i)).toBeInTheDocument();
+
+      await user.click(screen.getByLabelText("Filter by status"));
+      await user.click(await screen.findByRole("option", { name: "Open" }));
+
+      expect(
+        await screen.findByText(/no tickets match these filters/i),
+      ).toBeInTheDocument();
     });
   });
 

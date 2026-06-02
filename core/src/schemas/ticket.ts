@@ -28,9 +28,19 @@ export type TicketSortField = (typeof ticketSortFields)[number];
 export const ticketSortOrders = ["asc", "desc"] as const;
 export type TicketSortOrder = (typeof ticketSortOrders)[number];
 
+export const UNCATEGORIZED = "none" as const;
+
+export const ticketCategoryFilterValues = [
+  ...Object.values(TicketCategory),
+  UNCATEGORIZED,
+] as const;
+
 export const ticketsListQuerySchema = z.object({
   sort: z.enum(ticketSortFields).optional(),
   order: z.enum(ticketSortOrders).optional(),
+  status: z.enum(TicketStatus).optional(),
+  category: z.enum(ticketCategoryFilterValues).optional(),
+  search: z.string().trim().min(1).max(200).optional(),
 });
 export type TicketsListQuery = z.infer<typeof ticketsListQuerySchema>;
 
