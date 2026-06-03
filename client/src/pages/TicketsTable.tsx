@@ -1,16 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import {
   type ColumnDef,
+  type PaginationState,
   type SortingState,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { TicketCategory, TicketStatus, type TicketSortField } from "core";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import {
+  DEFAULT_TICKET_PAGE_SIZE,
+  TICKET_PAGE_SIZES,
+  TicketCategory,
+  TicketStatus,
+  type TicketPageSize,
+  type TicketSortField,
+} from "core";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -118,6 +134,11 @@ export function TicketsTable({ filters }: Props) {
   ]);
   const sortParam = sorting[0];
 
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: DEFAULT_TICKET_PAGE_SIZE,
+  });
+
   const debouncedSearch = useDebounce(filters.search, 300);
   const searchParam = debouncedSearch.trim() || undefined;
 
@@ -126,7 +147,11 @@ export function TicketsTable({ filters }: Props) {
     filters.category !== undefined ||
     filters.search !== "";
 
-  const { data: tickets, error, isPending } = useQuery({
+  useEffect(() => {
+    setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }));
+  }, [filters.status, filters.category, searchParam, sortParam.id, sortParam.desc]);
+
+  const { data, error, isPending } = useQuery({
     queryKey: [
       "tickets",
       sortParam.id,
@@ -134,28 +159,39 @@ export function TicketsTable({ filters }: Props) {
       filters.status,
       filters.category,
       searchParam,
+      pagination.pageIndex,
+      pagination.pageSize,
     ],
     queryFn: ({ signal }) =>
       axios
-        .get<{ tickets: Ticket[] }>("/api/tickets", {
+        .get<{ tickets: Ticket[]; total: number }>("/api/tickets", {
           signal,
           params: {
             sort: sortParam.id,
             order: sortParam.desc ? "desc" : "asc",
+            page: pagination.pageIndex + 1,
+            pageSize: pagination.pageSize,
             ...(filters.status && { status: filters.status }),
             ...(filters.category && { category: filters.category }),
             ...(searchParam && { search: searchParam }),
           },
         })
-        .then((res) => res.data.tickets),
+        .then((res) => res.data),
   });
 
+  const tickets = data?.tickets ?? [];
+  const total = data?.total ?? 0;
+  const pageCount = Math.max(1, Math.ceil(total / pagination.pageSize));
+
   const table = useReactTable({
-    data: tickets ?? [],
+    data: tickets,
     columns,
-    state: { sorting },
+    state: { sorting, pagination },
     onSortingChange: setSorting,
+    onPaginationChange: setPagination,
     manualSorting: true,
+    manualPagination: true,
+    pageCount,
     enableSortingRemoval: false,
     getCoreRowModel: getCoreRowModel(),
   });
@@ -240,6 +276,60 @@ export function TicketsTable({ filters }: Props) {
           )}
         </TableBody>
       </Table>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
+        <span>
+          {total} {total === 1 ? "ticket" : "tickets"}
+        </span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span>Rows per page</span>
+            <Select
+              value={String(pagination.pageSize)}
+              onValueChange={(v) =>
+                setPagination({
+                  pageIndex: 0,
+                  pageSize: Number(v) as TicketPageSize,
+                })
+              }
+            >
+              <SelectTrigger className="w-20" aria-label="Rows per page">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TICKET_PAGE_SIZES.map((n) => (
+                  <SelectItem key={n} value={String(n)}>
+                    {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <span>
+            Page {pagination.pageIndex + 1} of {pageCount}
+          </span>
+          <div className="flex gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Previous page"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Next page"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

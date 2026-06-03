@@ -70,7 +70,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("renders the page heading", () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: [] } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: [], total: 0 } });
     renderTickets();
     expect(
       screen.getByRole("heading", { level: 1, name: /tickets/i }),
@@ -86,14 +86,14 @@ describe("<TicketsPage />", () => {
   });
 
   it("renders the empty state when the API returns no tickets", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: [] } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: [], total: 0 } });
     renderTickets();
 
     expect(await screen.findByText(/no tickets yet/i)).toBeInTheDocument();
   });
 
   it("renders rows in the order returned by the API", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     await screen.findByText("Printer broken");
@@ -112,7 +112,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("renders ticket id, subject, and formatted created date", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     expect(await screen.findByText("#42")).toBeInTheDocument();
@@ -123,7 +123,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("shows fromName with fromEmail underneath when both are present", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     expect(await screen.findByText("Alice Customer")).toBeInTheDocument();
@@ -131,7 +131,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("falls back to fromEmail alone when fromName is null", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     await screen.findByText("Refund question");
@@ -140,7 +140,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("uses default variant for open and secondary for closed status badges", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     const openBadges = await screen.findAllByText(TicketStatus.open);
@@ -155,7 +155,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("maps each category to its pretty label and renders an outline badge", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     const technical = await screen.findByText("Technical");
@@ -169,7 +169,7 @@ describe("<TicketsPage />", () => {
   });
 
   it("renders an em dash for tickets with no category", async () => {
-    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+    mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
     renderTickets();
 
     await screen.findByText("No category here");
@@ -178,7 +178,7 @@ describe("<TicketsPage />", () => {
 
   describe("server-side sorting", () => {
     it("requests createdAt desc by default", async () => {
-      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       renderTickets();
 
       await screen.findByText("Printer broken");
@@ -190,7 +190,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("shows a descending chevron on the default-sorted Created header", async () => {
-      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       renderTickets();
 
       await screen.findByText("Printer broken");
@@ -201,7 +201,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("refetches with ?sort=subject&order=asc when the Subject header is clicked", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
 
@@ -218,7 +218,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("flips to desc when the same column header is clicked twice", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
 
@@ -239,7 +239,7 @@ describe("<TicketsPage />", () => {
 
   describe("server-side filtering", () => {
     it("sends no filter params on initial render", async () => {
-      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValueOnce({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       renderTickets();
 
       await screen.findByText("Printer broken");
@@ -251,7 +251,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("refetches with status=open when the Status filter is set", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
       await screen.findByText("Printer broken");
@@ -266,7 +266,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("sends category=none when the Uncategorized option is selected", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
       await screen.findByText("Printer broken");
@@ -281,7 +281,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("debounces the search input before refetching with search", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
       await screen.findByText("Printer broken");
@@ -298,7 +298,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("combines filters with the current sort", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
       await screen.findByText("Printer broken");
@@ -316,7 +316,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("clears all filters and refetches without filter params", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS } });
+      mockedGet.mockResolvedValue({ data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length } });
       const user = userEvent.setup();
       renderTickets();
       await screen.findByText("Printer broken");
@@ -333,7 +333,7 @@ describe("<TicketsPage />", () => {
     });
 
     it("shows a filter-aware empty state when no tickets match", async () => {
-      mockedGet.mockResolvedValue({ data: { tickets: [] } });
+      mockedGet.mockResolvedValue({ data: { tickets: [], total: 0 } });
       const user = userEvent.setup();
       renderTickets();
 
@@ -345,6 +345,157 @@ describe("<TicketsPage />", () => {
       expect(
         await screen.findByText(/no tickets match these filters/i),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe("server-side pagination", () => {
+    it("sends page=1 and pageSize=25 on the initial request", async () => {
+      mockedGet.mockResolvedValueOnce({
+        data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length },
+      });
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      expect(mockedGet.mock.calls[0][1]).toMatchObject({
+        params: { page: 1, pageSize: 25 },
+      });
+    });
+
+    it("renders the total count and total page count from the response", async () => {
+      mockedGet.mockResolvedValueOnce({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      expect(screen.getByText("100 tickets")).toBeInTheDocument();
+      expect(screen.getByText("Page 1 of 4")).toBeInTheDocument();
+    });
+
+    it("uses the singular 'ticket' label when total is 1", async () => {
+      mockedGet.mockResolvedValueOnce({
+        data: { tickets: [MOCK_TICKETS[0]], total: 1 },
+      });
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      expect(screen.getByText("1 ticket")).toBeInTheDocument();
+    });
+
+    it("disables the Previous page button on the first page", async () => {
+      mockedGet.mockResolvedValueOnce({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      expect(
+        screen.getByRole("button", { name: "Previous page" }),
+      ).toBeDisabled();
+    });
+
+    it("disables the Next page button when results fit on a single page", async () => {
+      mockedGet.mockResolvedValueOnce({
+        data: { tickets: MOCK_TICKETS, total: MOCK_TICKETS.length },
+      });
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      expect(
+        screen.getByRole("button", { name: "Next page" }),
+      ).toBeDisabled();
+    });
+
+    it("requests page 2 when the Next page button is clicked", async () => {
+      mockedGet.mockResolvedValue({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 2, pageSize: 25 },
+        });
+      });
+    });
+
+    it("requests pageSize=50 and resets to page 1 when Rows per page changes", async () => {
+      mockedGet.mockResolvedValue({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      // Jump to page 2 first so the page-reset side of this is observable.
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 2 },
+        });
+      });
+
+      await user.click(screen.getByLabelText("Rows per page"));
+      await user.click(await screen.findByRole("option", { name: "50" }));
+
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 1, pageSize: 50 },
+        });
+      });
+    });
+
+    it("resets to page 1 when a filter changes", async () => {
+      mockedGet.mockResolvedValue({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 2 },
+        });
+      });
+
+      await user.click(screen.getByLabelText("Filter by status"));
+      await user.click(await screen.findByRole("option", { name: "Open" }));
+
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 1, status: "open" },
+        });
+      });
+    });
+
+    it("resets to page 1 when sort changes", async () => {
+      mockedGet.mockResolvedValue({
+        data: { tickets: MOCK_TICKETS, total: 100 },
+      });
+      const user = userEvent.setup();
+      renderTickets();
+      await screen.findByText("Printer broken");
+
+      await user.click(screen.getByRole("button", { name: "Next page" }));
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 2 },
+        });
+      });
+
+      await user.click(screen.getByRole("columnheader", { name: /subject/i }));
+
+      await waitFor(() => {
+        expect(mockedGet.mock.calls[mockedGet.mock.calls.length - 1][1]).toMatchObject({
+          params: { page: 1, sort: "subject" },
+        });
+      });
     });
   });
 

@@ -35,12 +35,24 @@ export const ticketCategoryFilterValues = [
   UNCATEGORIZED,
 ] as const;
 
+export const TICKET_PAGE_SIZES = [10, 25, 50, 100] as const;
+export type TicketPageSize = (typeof TICKET_PAGE_SIZES)[number];
+export const DEFAULT_TICKET_PAGE_SIZE: TicketPageSize = 25;
+
 export const ticketsListQuerySchema = z.object({
   sort: z.enum(ticketSortFields).optional(),
   order: z.enum(ticketSortOrders).optional(),
   status: z.enum(TicketStatus).optional(),
   category: z.enum(ticketCategoryFilterValues).optional(),
   search: z.string().trim().min(1).max(200).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .refine((v): v is TicketPageSize =>
+      (TICKET_PAGE_SIZES as readonly number[]).includes(v),
+    )
+    .optional(),
 });
 export type TicketsListQuery = z.infer<typeof ticketsListQuerySchema>;
 

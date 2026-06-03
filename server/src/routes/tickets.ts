@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
-import { ticketsListQuerySchema, UNCATEGORIZED } from "core";
+import {
+  DEFAULT_TICKET_PAGE_SIZE,
+  ticketsListQuerySchema,
+  UNCATEGORIZED,
+} from "core";
 import prisma from "../lib/prisma";
 import { requireAuth } from "../middleware/requireAuth";
 
@@ -14,10 +18,13 @@ ticketsRouter.get("/", async (req, res) => {
     res.status(400).json({ error: "Invalid query", issues: parsed.error.issues });
     return;
   }
-  const { sort, order, status, category, search } = parsed.data;
+  const { sort, order, status, category, search, page, pageSize } = parsed.data;
   const orderBy = sort
     ? { [sort]: order ?? "asc" }
     : { createdAt: "desc" as const };
+
+  const take = pageSize ?? DEFAULT_TICKET_PAGE_SIZE;
+  const skip = ((page ?? 1) - 1) * take;
 
   const where: Prisma.TicketWhereInput = {};
   if (status) where.status = status;
@@ -30,20 +37,25 @@ ticketsRouter.get("/", async (req, res) => {
     ];
   }
 
-  const tickets = await prisma.ticket.findMany({
-    select: {
-      id: true,
-      subject: true,
-      fromEmail: true,
-      fromName: true,
-      category: true,
-      status: true,
-      createdAt: true,
-    },
-    where,
-    orderBy,
-  });
-  res.json({ tickets });
+  const [tickets, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      select: {
+        id: true,
+        subject: true,
+        fromEmail: true,
+        fromName: true,
+        category: true,
+        status: true,
+        createdAt: true,
+      },
+      where,
+      orderBy,
+      skip,
+      take,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+  res.json({ tickets, total });
 });
 
 export default ticketsRouter;
