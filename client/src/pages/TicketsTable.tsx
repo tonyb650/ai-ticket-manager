@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -18,7 +19,6 @@ import {
   type TicketPageSize,
   type TicketSortField,
 } from "core";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/table";
 import { useDebounce } from "@/lib/useDebounce";
 import type { TicketFilters } from "./TicketsFilters";
+import { CategoryBadge, StatusBadge } from "./ticketDisplay";
 
 type Ticket = {
   id: number;
@@ -47,12 +48,6 @@ type Ticket = {
   category: TicketCategory | null;
   status: TicketStatus;
   createdAt: string;
-};
-
-const CATEGORY_LABELS: Record<TicketCategory, string> = {
-  [TicketCategory.general_question]: "General",
-  [TicketCategory.technical_question]: "Technical",
-  [TicketCategory.refund_request]: "Refund",
 };
 
 const columns = [
@@ -70,7 +65,12 @@ const columns = [
     accessorKey: "subject",
     header: "Subject",
     cell: ({ row }) => (
-      <span className="font-medium">{row.original.subject}</span>
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="font-medium text-gray-900 hover:text-gray-700 hover:underline transition"
+      >
+        {row.original.subject}
+      </Link>
     ),
   },
   {
@@ -93,24 +93,13 @@ const columns = [
     id: "category",
     accessorKey: "category",
     header: "Category",
-    cell: ({ row }) =>
-      row.original.category ? (
-        <Badge variant="outline">{CATEGORY_LABELS[row.original.category]}</Badge>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
+    cell: ({ row }) => <CategoryBadge category={row.original.category} />,
   },
   {
     id: "status",
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => (
-      <Badge
-        variant={row.original.status === TicketStatus.open ? "default" : "secondary"}
-      >
-        {row.original.status}
-      </Badge>
-    ),
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   {
     id: "createdAt",

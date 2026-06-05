@@ -56,6 +56,23 @@ export const ticketsListQuerySchema = z.object({
 });
 export type TicketsListQuery = z.infer<typeof ticketsListQuerySchema>;
 
+export type TicketDetail = {
+  id: number;
+  subject: string;
+  body: string;
+  fromEmail: string;
+  fromName: string | null;
+  category: TicketCategory | null;
+  status: TicketStatus;
+  createdAt: string;
+  updatedAt: string;
+  assignedTo: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+};
+
 export const inboundEmailSchema = z.object({
   from: z.email(),
   fromName: z.string().trim().optional(),
