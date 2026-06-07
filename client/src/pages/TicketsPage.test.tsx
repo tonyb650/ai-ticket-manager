@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router";
 import axios from "axios";
 import { TicketCategory, TicketStatus } from "core";
 import TicketsPage from "./TicketsPage";
@@ -53,7 +54,9 @@ function renderTickets() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <TicketsPage />
+      <MemoryRouter>
+        <TicketsPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }

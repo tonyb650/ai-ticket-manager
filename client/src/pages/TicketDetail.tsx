@@ -1,13 +1,23 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router";
 import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
-import type { TicketDetail as TicketDetailType } from "core";
+import type { Assignee, TicketDetail as TicketDetailType } from "core";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CategoryBadge, StatusBadge } from "./ticketDisplay";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CategoryBadge, StatusBadge, UNASSIGNED_VALUE } from "./ticketDisplay";
 
 export default function TicketDetail() {
   const { id } = useParams();
+  const queryClient = useQueryClient();
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   const { data: ticket, error, isPending } = useQuery({
     queryKey: ["ticket", id],
@@ -15,6 +25,31 @@ export default function TicketDetail() {
       axios
         .get<{ ticket: TicketDetailType }>(`/api/tickets/${id}`, { signal })
         .then((res) => res.data.ticket),
+  });
+
+  const { data: agents } = useQuery({
+    queryKey: ["agents"],
+    queryFn: ({ signal }) =>
+      axios
+        .get<{ agents: Assignee[] }>("/api/agents", { signal })
+        .then((res) => res.data.agents),
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (assignedToId: string | null) =>
+      axios
+        .patch<{ ticket: TicketDetailType }>(`/api/tickets/${id}`, {
+          assignedToId,
+        })
+        .then((res) => res.data.ticket),
+    onSuccess: () => {
+      setAssignError(null);
+      queryClient.invalidateQueries({ queryKey: ["ticket", id] });
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+    onError: () => {
+      setAssignError("Failed to update assignment");
+    },
   });
 
   const notFound = axios.isAxiosError(error) && error.response?.status === 404;
@@ -74,15 +109,30 @@ export default function TicketDetail() {
           <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
             <dt className="text-gray-500">Assigned to</dt>
             <dd className="text-gray-900">
-              {ticket.assignedTo ? (
-                <>
-                  <span className="font-medium">{ticket.assignedTo.name}</span>{" "}
-                  <span className="text-gray-500">
-                    &lt;{ticket.assignedTo.email}&gt;
-                  </span>
-                </>
-              ) : (
-                <span className="text-gray-400">Unassigned</span>
+              <Select
+                value={ticket.assignedTo?.id ?? UNASSIGNED_VALUE}
+                onValueChange={(value) =>
+                  assignMutation.mutate(
+                    value === UNASSIGNED_VALUE ? null : value,
+                  )
+                }
+                disabled={!agents || assignMutation.isPending}
+              >
+                <SelectTrigger className="h-8 w-72" aria-label="Assign ticket">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                  {agents?.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}{" "}
+                      <span className="text-gray-500">&lt;{agent.email}&gt;</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {assignError && (
+                <p className="mt-1 text-xs text-red-600">{assignError}</p>
               )}
             </dd>
             <dt className="text-gray-500">Created</dt>

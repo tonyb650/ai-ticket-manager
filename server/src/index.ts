@@ -8,6 +8,7 @@ import { requireAuth } from "./middleware/requireAuth";
 import usersRouter from "./routes/users";
 import webhooksRouter from "./routes/webhooks";
 import ticketsRouter from "./routes/tickets";
+import agentsRouter from "./routes/agents";
 
 if (process.env.NODE_ENV === "production") {
   const secret = process.env.BETTER_AUTH_SECRET;
@@ -60,6 +61,7 @@ app.get("/api/me", requireAuth, (req, res) => {
 app.use("/api/users", usersRouter);
 app.use("/api/webhooks", webhooksRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/agents", agentsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

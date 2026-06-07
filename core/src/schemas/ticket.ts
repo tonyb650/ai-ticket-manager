@@ -56,6 +56,12 @@ export const ticketsListQuerySchema = z.object({
 });
 export type TicketsListQuery = z.infer<typeof ticketsListQuerySchema>;
 
+export type Assignee = {
+  id: string;
+  name: string;
+  email: string;
+};
+
 export type TicketDetail = {
   id: number;
   subject: string;
@@ -66,12 +72,15 @@ export type TicketDetail = {
   status: TicketStatus;
   createdAt: string;
   updatedAt: string;
-  assignedTo: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
+  assignedTo: Assignee | null;
 };
+
+export const updateTicketAssignmentSchema = z.object({
+  assignedToId: z.string().min(1).nullable(),
+});
+export type UpdateTicketAssignmentInput = z.infer<
+  typeof updateTicketAssignmentSchema
+>;
 
 export const inboundEmailSchema = z.object({
   from: z.email(),
