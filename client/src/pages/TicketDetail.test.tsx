@@ -213,6 +213,84 @@ describe("<TicketDetail /> assignment", () => {
     });
   });
 
+  describe("updating status", () => {
+    it("renders a control reflecting the current status", async () => {
+      mockGets({ ticket: { ...MOCK_TICKET, status: TicketStatus.open } });
+      renderDetail();
+
+      await screen.findByRole("heading", { name: "Printer broken" });
+
+      expect(screen.getByLabelText("Set status")).toHaveTextContent("Open");
+    });
+
+    it("PATCHes the chosen status", async () => {
+      mockGets({ ticket: { ...MOCK_TICKET, status: TicketStatus.open } });
+      mockedPatch.mockResolvedValue({
+        data: { ticket: { ...MOCK_TICKET, status: TicketStatus.closed } },
+      });
+      const user = userEvent.setup();
+      renderDetail();
+
+      await screen.findByRole("heading", { name: "Printer broken" });
+      await user.click(screen.getByLabelText("Set status"));
+      await user.click(await screen.findByRole("option", { name: "Closed" }));
+
+      await waitFor(() => {
+        expect(mockedPatch).toHaveBeenCalledWith("/api/tickets/42", {
+          status: TicketStatus.closed,
+        });
+      });
+    });
+  });
+
+  describe("updating category", () => {
+    it("PATCHes the chosen category", async () => {
+      mockGets({
+        ticket: { ...MOCK_TICKET, category: TicketCategory.technical_question },
+      });
+      mockedPatch.mockResolvedValue({
+        data: {
+          ticket: { ...MOCK_TICKET, category: TicketCategory.refund_request },
+        },
+      });
+      const user = userEvent.setup();
+      renderDetail();
+
+      await screen.findByRole("heading", { name: "Printer broken" });
+      await user.click(screen.getByLabelText("Set category"));
+      await user.click(await screen.findByRole("option", { name: "Refund" }));
+
+      await waitFor(() => {
+        expect(mockedPatch).toHaveBeenCalledWith("/api/tickets/42", {
+          category: TicketCategory.refund_request,
+        });
+      });
+    });
+
+    it("PATCHes a null category when 'Uncategorized' is chosen", async () => {
+      mockGets({
+        ticket: { ...MOCK_TICKET, category: TicketCategory.technical_question },
+      });
+      mockedPatch.mockResolvedValue({
+        data: { ticket: { ...MOCK_TICKET, category: null } },
+      });
+      const user = userEvent.setup();
+      renderDetail();
+
+      await screen.findByRole("heading", { name: "Printer broken" });
+      await user.click(screen.getByLabelText("Set category"));
+      await user.click(
+        await screen.findByRole("option", { name: /uncategorized/i }),
+      );
+
+      await waitFor(() => {
+        expect(mockedPatch).toHaveBeenCalledWith("/api/tickets/42", {
+          category: null,
+        });
+      });
+    });
+  });
+
   describe("error handling", () => {
     let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -231,7 +309,7 @@ describe("<TicketDetail /> assignment", () => {
       await user.click(await screen.findByRole("option", { name: /Agent One/ }));
 
       expect(
-        await screen.findByText(/failed to update assignment/i),
+        await screen.findByText(/failed to update ticket/i),
       ).toBeInTheDocument();
 
       consoleErrorSpy.mockRestore();

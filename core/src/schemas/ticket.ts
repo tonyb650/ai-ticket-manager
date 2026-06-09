@@ -75,12 +75,15 @@ export type TicketDetail = {
   assignedTo: Assignee | null;
 };
 
-export const updateTicketAssignmentSchema = z.object({
-  assignedToId: z.string().min(1).nullable(),
+// Partial update of a ticket's mutable fields. Each key is optional so a
+// caller can patch any subset; `assignedToId: null` unassigns and
+// `category: null` clears the category.
+export const updateTicketSchema = z.object({
+  assignedToId: z.string().min(1).nullable().optional(),
+  status: z.enum(TicketStatus).optional(),
+  category: z.enum(TicketCategory).nullable().optional(),
 });
-export type UpdateTicketAssignmentInput = z.infer<
-  typeof updateTicketAssignmentSchema
->;
+export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 
 export const inboundEmailSchema = z.object({
   from: z.email(),

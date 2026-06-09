@@ -7,9 +7,15 @@ export const CATEGORY_LABELS: Record<TicketCategory, string> = {
   [TicketCategory.refund_request]: "Refund",
 };
 
-// Sentinel for the assignment Select's "Unassigned" option — Radix Select
-// disallows an empty-string value. Maps to `null` on the wire.
+export const STATUS_LABELS: Record<TicketStatus, string> = {
+  [TicketStatus.open]: "Open",
+  [TicketStatus.closed]: "Closed",
+};
+
+// Sentinels for Select options that map to `null` on the wire — Radix Select
+// disallows an empty-string value.
 export const UNASSIGNED_VALUE = "unassigned";
+export const UNCATEGORIZED_VALUE = "uncategorized";
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
   return (

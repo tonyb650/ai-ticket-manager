@@ -3,7 +3,13 @@ import { Link, useParams } from "react-router";
 import axios from "axios";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft } from "lucide-react";
-import type { Assignee, TicketDetail as TicketDetailType } from "core";
+import {
+  TicketCategory,
+  TicketStatus,
+  type Assignee,
+  type TicketDetail as TicketDetailType,
+  type UpdateTicketInput,
+} from "core";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -12,12 +18,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CategoryBadge, StatusBadge, UNASSIGNED_VALUE } from "./ticketDisplay";
+import {
+  CATEGORY_LABELS,
+  STATUS_LABELS,
+  UNASSIGNED_VALUE,
+  UNCATEGORIZED_VALUE,
+} from "./ticketDisplay";
 
 export default function TicketDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
-  const [assignError, setAssignError] = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const { data: ticket, error, isPending } = useQuery({
     queryKey: ["ticket", id],
@@ -35,20 +46,18 @@ export default function TicketDetail() {
         .then((res) => res.data.agents),
   });
 
-  const assignMutation = useMutation({
-    mutationFn: (assignedToId: string | null) =>
+  const updateMutation = useMutation({
+    mutationFn: (update: UpdateTicketInput) =>
       axios
-        .patch<{ ticket: TicketDetailType }>(`/api/tickets/${id}`, {
-          assignedToId,
-        })
+        .patch<{ ticket: TicketDetailType }>(`/api/tickets/${id}`, update)
         .then((res) => res.data.ticket),
     onSuccess: () => {
-      setAssignError(null);
+      setUpdateError(null);
       queryClient.invalidateQueries({ queryKey: ["ticket", id] });
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
     },
     onError: () => {
-      setAssignError("Failed to update assignment");
+      setUpdateError("Failed to update ticket");
     },
   });
 
@@ -78,11 +87,7 @@ export default function TicketDetail() {
         </p>
       ) : (
         <div className="mt-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <span>#{ticket.id}</span>
-            <StatusBadge status={ticket.status} />
-            <CategoryBadge category={ticket.category} />
-          </div>
+          <div className="text-sm text-gray-500">#{ticket.id}</div>
 
           <h1 className="mt-2 text-2xl font-bold text-gray-900">
             {ticket.subject}
@@ -106,48 +111,114 @@ export default function TicketDetail() {
             </span>
           </div>
 
-          <dl className="mt-4 grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-sm">
-            <dt className="text-gray-500">Assigned to</dt>
-            <dd className="text-gray-900">
-              <Select
-                value={ticket.assignedTo?.id ?? UNASSIGNED_VALUE}
-                onValueChange={(value) =>
-                  assignMutation.mutate(
-                    value === UNASSIGNED_VALUE ? null : value,
-                  )
-                }
-                disabled={!agents || assignMutation.isPending}
-              >
-                <SelectTrigger className="h-8 w-72" aria-label="Assign ticket">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
-                  {agents?.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.name}{" "}
-                      <span className="text-gray-500">&lt;{agent.email}&gt;</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {assignError && (
-                <p className="mt-1 text-xs text-red-600">{assignError}</p>
-              )}
-            </dd>
-            <dt className="text-gray-500">Created</dt>
-            <dd className="text-gray-900">
-              {new Date(ticket.createdAt).toLocaleString()}
-            </dd>
-            <dt className="text-gray-500">Last updated</dt>
-            <dd className="text-gray-900">
-              {new Date(ticket.updatedAt).toLocaleString()}
-            </dd>
-          </dl>
+          <div className="mt-4 flex flex-col gap-6 md:flex-row md:gap-10">
+            {/* Editable controls — moved into a second column on tablet/desktop */}
+            <div className="md:order-2 md:w-80 md:shrink-0">
+              <dl className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2 text-sm">
+                <dt className="text-gray-500">Status</dt>
+                <dd className="text-gray-900">
+                  <Select
+                    value={ticket.status}
+                    onValueChange={(value) =>
+                      updateMutation.mutate({ status: value as TicketStatus })
+                    }
+                    disabled={updateMutation.isPending}
+                  >
+                    <SelectTrigger className="h-8 w-full" aria-label="Set status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.values(TicketStatus).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {STATUS_LABELS[status]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </dd>
 
-          <pre className="mt-6 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
-            {ticket.body}
-          </pre>
+                <dt className="text-gray-500">Category</dt>
+                <dd className="text-gray-900">
+                  <Select
+                    value={ticket.category ?? UNCATEGORIZED_VALUE}
+                    onValueChange={(value) =>
+                      updateMutation.mutate({
+                        category:
+                          value === UNCATEGORIZED_VALUE
+                            ? null
+                            : (value as TicketCategory),
+                      })
+                    }
+                    disabled={updateMutation.isPending}
+                  >
+                    <SelectTrigger className="h-8 w-full" aria-label="Set category">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNCATEGORIZED_VALUE}>
+                        Uncategorized
+                      </SelectItem>
+                      {Object.values(TicketCategory).map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {CATEGORY_LABELS[category]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </dd>
+
+                <dt className="text-gray-500">Assigned to</dt>
+                <dd className="text-gray-900">
+                  <Select
+                    value={ticket.assignedTo?.id ?? UNASSIGNED_VALUE}
+                    onValueChange={(value) =>
+                      updateMutation.mutate({
+                        assignedToId: value === UNASSIGNED_VALUE ? null : value,
+                      })
+                    }
+                    disabled={!agents || updateMutation.isPending}
+                  >
+                    <SelectTrigger className="h-8 w-full" aria-label="Assign ticket">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
+                      {agents?.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name}{" "}
+                          <span className="text-gray-500">
+                            &lt;{agent.email}&gt;
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </dd>
+              </dl>
+
+              {updateError && (
+                <p className="mt-2 text-xs text-red-600">{updateError}</p>
+              )}
+            </div>
+
+            {/* Ticket detail — main column */}
+            <div className="md:order-1 md:flex-1">
+              <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt className="text-gray-500">Created</dt>
+                <dd className="text-gray-900">
+                  {new Date(ticket.createdAt).toLocaleString()}
+                </dd>
+                <dt className="text-gray-500">Last updated</dt>
+                <dd className="text-gray-900">
+                  {new Date(ticket.updatedAt).toLocaleString()}
+                </dd>
+              </dl>
+
+              <pre className="mt-6 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
+                {ticket.body}
+              </pre>
+            </div>
+          </div>
         </div>
       )}
     </div>

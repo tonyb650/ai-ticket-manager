@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import {
   DEFAULT_TICKET_PAGE_SIZE,
   ticketsListQuerySchema,
-  updateTicketAssignmentSchema,
+  updateTicketSchema,
   UNCATEGORIZED,
 } from "core";
 import prisma from "../lib/prisma";
@@ -106,9 +106,9 @@ ticketsRouter.patch("/:id", async (req, res) => {
     return;
   }
 
-  const data = parseBody(res, updateTicketAssignmentSchema, req.body);
+  const data = parseBody(res, updateTicketSchema, req.body);
   if (!data) return;
-  const { assignedToId } = data;
+  const { assignedToId, status, category } = data;
 
   const existing = await prisma.ticket.findUnique({ where: { id } });
   if (!existing) {
@@ -116,7 +116,9 @@ ticketsRouter.patch("/:id", async (req, res) => {
     return;
   }
 
-  if (assignedToId !== null) {
+  // Only validate the assignee when a concrete id is supplied; `undefined`
+  // leaves assignment unchanged and `null` unassigns.
+  if (assignedToId != null) {
     const assignee = await prisma.user.findFirst({
       where: { id: assignedToId, deletedAt: null },
     });
@@ -126,9 +128,11 @@ ticketsRouter.patch("/:id", async (req, res) => {
     }
   }
 
+  // Prisma treats `undefined` fields as "no change", so omitted keys are
+  // left untouched while explicit `null`s clear the column.
   const ticket = await prisma.ticket.update({
     where: { id },
-    data: { assignedToId },
+    data: { assignedToId, status, category },
     select: ticketDetailSelect,
   });
 
