@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { authClient, useSession } from "../lib/authClient";
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -63,11 +64,7 @@ export default function Login() {
                 aria-describedby={errors.email ? "email-error" : undefined}
                 {...register("email")}
               />
-              {errors.email && (
-                <p id="email-error" className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
-              )}
+              <ErrorMessage id="email-error" message={errors.email?.message} />
             </div>
 
             <div className="space-y-1">
@@ -80,18 +77,13 @@ export default function Login() {
                 aria-describedby={errors.password ? "password-error" : undefined}
                 {...register("password")}
               />
-              {errors.password && (
-                <p id="password-error" className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
-              )}
+              <ErrorMessage
+                id="password-error"
+                message={errors.password?.message}
+              />
             </div>
 
-            {errors.root && (
-              <p role="alert" className="text-sm text-destructive">
-                {errors.root.message}
-              </p>
-            )}
+            <ErrorMessage role="alert" message={errors.root?.message} />
 
             <Button type="submit" disabled={isSubmitting} className="w-full">
               {isSubmitting ? "Signing in…" : "Sign in"}

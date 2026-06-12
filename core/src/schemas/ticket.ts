@@ -15,6 +15,13 @@ export const TicketCategory = {
 
 export type TicketCategory = (typeof TicketCategory)[keyof typeof TicketCategory];
 
+export const SenderType = {
+  agent: "agent",
+  customer: "customer",
+} as const;
+
+export type SenderType = (typeof SenderType)[keyof typeof SenderType];
+
 export const ticketSortFields = [
   "id",
   "subject",
@@ -62,6 +69,14 @@ export type Assignee = {
   email: string;
 };
 
+export type TicketReply = {
+  id: number;
+  body: string;
+  senderType: SenderType;
+  createdAt: string;
+  author: Assignee | null;
+};
+
 export type TicketDetail = {
   id: number;
   subject: string;
@@ -74,6 +89,13 @@ export type TicketDetail = {
   updatedAt: string;
   assignedTo: Assignee | null;
 };
+
+// Agents reply via the in-app form; `senderType` is derived server-side and is
+// never accepted from the client.
+export const createReplySchema = z.object({
+  body: z.string().trim().min(1).max(10000),
+});
+export type CreateReplyInput = z.infer<typeof createReplySchema>;
 
 // Partial update of a ticket's mutable fields. Each key is optional so a
 // caller can patch any subset; `assignedToId: null` unassigns and

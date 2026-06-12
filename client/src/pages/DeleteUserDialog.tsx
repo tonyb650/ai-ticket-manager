@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ErrorMessage } from "@/components/ui/error-message";
 import type { User } from "./UsersTable";
 
 type Props = {
@@ -50,11 +51,7 @@ export default function DeleteUserDialog({ user, open, onOpenChange }: Props) {
             immediately. This cannot be undone from the UI.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {errorMessage && (
-          <p role="alert" className="text-sm text-destructive">
-            {errorMessage}
-          </p>
-        )}
+        <ErrorMessage role="alert" message={errorMessage ?? undefined} />
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleteUser.isPending}>
             Cancel

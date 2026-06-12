@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,11 +83,7 @@ export default function UserForm({ user, onClose }: Props) {
           aria-describedby={errors.name ? "user-form-name-error" : undefined}
           {...register("name")}
         />
-        {errors.name && (
-          <p id="user-form-name-error" className="text-sm text-destructive">
-            {errors.name.message}
-          </p>
-        )}
+        <ErrorMessage id="user-form-name-error" message={errors.name?.message} />
       </div>
 
       <div className="space-y-1">
@@ -99,11 +96,10 @@ export default function UserForm({ user, onClose }: Props) {
           aria-describedby={errors.email ? "user-form-email-error" : undefined}
           {...register("email")}
         />
-        {errors.email && (
-          <p id="user-form-email-error" className="text-sm text-destructive">
-            {errors.email.message}
-          </p>
-        )}
+        <ErrorMessage
+          id="user-form-email-error"
+          message={errors.email?.message}
+        />
       </div>
 
       <div className="space-y-1">
@@ -125,21 +121,13 @@ export default function UserForm({ user, onClose }: Props) {
           }
           {...register("password")}
         />
-        {errors.password && (
-          <p
-            id="user-form-password-error"
-            className="text-sm text-destructive"
-          >
-            {errors.password.message}
-          </p>
-        )}
+        <ErrorMessage
+          id="user-form-password-error"
+          message={errors.password?.message}
+        />
       </div>
 
-      {errors.root && (
-        <p role="alert" className="text-sm text-destructive">
-          {errors.root.message}
-        </p>
-      )}
+      <ErrorMessage role="alert" message={errors.root?.message} />
       <div className="flex justify-end gap-3">
         <Button
           type="button"

@@ -4,6 +4,7 @@ import { Role } from "core";
 import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -38,7 +39,7 @@ export default function UsersTable({ onEdit, onDelete }: Props) {
 
   if (error) {
     return (
-      <p className="text-sm text-red-600">Failed to load users: {error.message}</p>
+      <ErrorMessage message={`Failed to load users: ${error.message}`} />
     );
   }
 

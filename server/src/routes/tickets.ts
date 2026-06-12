@@ -1,6 +1,7 @@
 import { Router } from "express";
-import { Prisma } from "@prisma/client";
+import { Prisma, SenderType, TicketStatus } from "@prisma/client";
 import {
+  createReplySchema,
   DEFAULT_TICKET_PAGE_SIZE,
   ticketsListQuerySchema,
   updateTicketSchema,
@@ -32,6 +33,20 @@ const ticketDetailSelect = {
     },
   },
 } satisfies Prisma.TicketSelect;
+
+const replySelect = {
+  id: true,
+  body: true,
+  senderType: true,
+  createdAt: true,
+  author: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} satisfies Prisma.TicketReplySelect;
 
 ticketsRouter.get("/", async (req, res) => {
   const parsed = ticketsListQuerySchema.safeParse(req.query);
@@ -137,6 +152,69 @@ ticketsRouter.patch("/:id", async (req, res) => {
   });
 
   res.json({ ticket });
+});
+
+ticketsRouter.get("/:id/replies", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 0) {
+    res.status(400).json({ error: "Invalid ticket id" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const replies = await prisma.ticketReply.findMany({
+    where: { ticketId: id },
+    orderBy: { createdAt: "asc" },
+    select: replySelect,
+  });
+
+  res.json({ replies });
+});
+
+ticketsRouter.post("/:id/replies", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id < 0) {
+    res.status(400).json({ error: "Invalid ticket id" });
+    return;
+  }
+
+  const data = parseBody(res, createReplySchema, req.body);
+  if (!data) return;
+
+  const existing = await prisma.ticket.findUnique({ where: { id } });
+  if (!existing) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  // Replying to a closed ticket reopens it. Create the reply and reopen in a
+  // single transaction so the two writes can't diverge.
+  const [reply] = await prisma.$transaction([
+    prisma.ticketReply.create({
+      data: {
+        ticketId: id,
+        body: data.body,
+        senderType: SenderType.agent,
+        authorId: req.session.user.id,
+      },
+      select: replySelect,
+    }),
+    ...(existing.status === TicketStatus.closed
+      ? [
+          prisma.ticket.update({
+            where: { id },
+            data: { status: TicketStatus.open },
+          }),
+        ]
+      : []),
+  ]);
+
+  res.status(201).json({ reply });
 });
 
 export default ticketsRouter;

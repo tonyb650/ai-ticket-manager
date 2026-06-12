@@ -20,6 +20,7 @@ import {
   type TicketSortField,
 } from "core";
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import {
   Select,
   SelectContent,
@@ -187,9 +188,10 @@ export function TicketsTable({ filters }: Props) {
 
   if (error) {
     return (
-      <p className="mt-6 text-sm text-red-600">
-        Failed to load tickets: {error.message}
-      </p>
+      <ErrorMessage
+        className="mt-6"
+        message={`Failed to load tickets: ${error.message}`}
+      />
     );
   }
 

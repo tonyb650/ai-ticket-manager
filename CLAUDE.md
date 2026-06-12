@@ -117,6 +117,12 @@ bunx --bun shadcn@latest add <component> -c client
 ```
 Components land in `client/src/components/ui/`. The `-c client` flag is required because the project is a Bun workspace monorepo — running without it from the repo root errors out asking for a workspace.
 
+### Error message text
+Render user-facing error text with the shared **`ErrorMessage`** component (`@/components/ui/error-message`), not an ad-hoc `<p className="text-sm text-destructive">`. The text is passed via the **`message`** prop (not children); the component owns the standard `text-sm text-destructive` styling and **renders nothing when `message` is empty/undefined**, so you can pass a react-hook-form `errors.x?.message` directly without a surrounding `&&` guard.
+- **Form-field errors:** pass `id` so the input can reference it via `aria-describedby` — `<ErrorMessage id="user-form-email-error" message={errors.email?.message} />`.
+- **Form root errors:** pass `role="alert"` — `<ErrorMessage role="alert" message={errors.root?.message} />`.
+- **Data-loading failures:** use it for query-error text too; override layout/size via `className` (tailwind-merge lets you swap `text-sm`→`text-xs` or add margins) — `<ErrorMessage className="mt-6" message={`Failed to load…: ${error.message}`} />`.
+
 ### Client data fetching
 - Use **axios** for HTTP requests, not `fetch`. It's already installed in `client/`.
 - Wrap server reads in **TanStack Query** (`useQuery`) and writes in `useMutation`. The `QueryClient` is set up at the app root in `client/src/main.tsx`.

@@ -2,11 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Routes, Route } from "react-router";
 import axios from "axios";
 import { TicketCategory, TicketStatus } from "core";
 import type { Assignee, TicketDetail as TicketDetailType } from "core";
-import TicketDetail from "./TicketDetail";
+import UpdateTicket from "./UpdateTicket";
 
 vi.mock("axios");
 
@@ -33,46 +32,30 @@ const MOCK_TICKET: TicketDetailType = {
 };
 
 /**
- * Route GET calls by URL: the detail page fetches both the ticket and the
- * agent list on mount. `agents` defaults to a never-resolving promise so the
- * caller can opt into a loading state.
+ * Mock the agents list fetch. `agentsPending` opts into a never-resolving
+ * promise so a test can assert the loading (disabled) state.
  */
-function mockGets({
-  ticket = MOCK_TICKET,
+function mockAgents({
   agents = MOCK_AGENTS,
   agentsPending = false,
-}: {
-  ticket?: TicketDetailType;
-  agents?: Assignee[];
-  agentsPending?: boolean;
-} = {}) {
+}: { agents?: Assignee[]; agentsPending?: boolean } = {}) {
   mockedGet.mockImplementation((url: string) => {
     if (url === "/api/agents") {
       return agentsPending
         ? new Promise(() => {})
         : Promise.resolve({ data: { agents } });
     }
-    if (typeof url === "string" && url.startsWith("/api/tickets/")) {
-      return Promise.resolve({ data: { ticket } });
-    }
     return Promise.reject(new Error(`unexpected GET ${url}`));
   });
 }
 
-function renderDetail(id = "42") {
+function renderUpdate(ticket: TicketDetailType = MOCK_TICKET) {
   const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const utils = render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/tickets/${id}`]}>
-        <Routes>
-          <Route path="/tickets/:id" element={<TicketDetail />} />
-        </Routes>
-      </MemoryRouter>
+      <UpdateTicket ticket={ticket} />
     </QueryClientProvider>,
   );
   return { ...utils, queryClient };
@@ -80,7 +63,7 @@ function renderDetail(id = "42") {
 
 const assignControl = () => screen.getByLabelText("Assign ticket");
 
-describe("<TicketDetail /> assignment", () => {
+describe("<UpdateTicket />", () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedPatch.mockReset();
@@ -92,30 +75,28 @@ describe("<TicketDetail /> assignment", () => {
   });
 
   describe("rendering the current assignment", () => {
-    it("shows 'Unassigned' in the control when the ticket has no assignee", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: null } });
-      renderDetail();
-
-      await screen.findByRole("heading", { name: "Printer broken" });
+    it("shows 'Unassigned' in the control when the ticket has no assignee", () => {
+      mockAgents();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: null });
 
       expect(assignControl()).toHaveTextContent("Unassigned");
     });
 
     it("shows the current assignee's name in the control", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] } });
-      renderDetail();
+      mockAgents();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
-
-      expect(assignControl()).toHaveTextContent("Agent One");
+      // The assignee label resolves once the agents list loads.
+      await waitFor(() =>
+        expect(assignControl()).toHaveTextContent("Agent One"),
+      );
     });
 
     it("lists 'Unassigned' plus every agent as options", async () => {
-      mockGets();
+      mockAgents();
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate();
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
 
       expect(
@@ -129,11 +110,9 @@ describe("<TicketDetail /> assignment", () => {
       ).toBeInTheDocument();
     });
 
-    it("disables the control while the agent list is still loading", async () => {
-      mockGets({ agentsPending: true });
-      renderDetail();
-
-      await screen.findByRole("heading", { name: "Printer broken" });
+    it("disables the control while the agent list is still loading", () => {
+      mockAgents({ agentsPending: true });
+      renderUpdate();
 
       expect(assignControl()).toBeDisabled();
     });
@@ -141,14 +120,13 @@ describe("<TicketDetail /> assignment", () => {
 
   describe("assigning a ticket", () => {
     it("PATCHes the ticket with the chosen agent id", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: null } });
+      mockAgents();
       mockedPatch.mockResolvedValue({
         data: { ticket: { ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] } },
       });
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: null });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
       await user.click(await screen.findByRole("option", { name: /Agent One/ }));
 
@@ -160,16 +138,17 @@ describe("<TicketDetail /> assignment", () => {
     });
 
     it("PATCHes with null when 'Unassigned' is chosen for an assigned ticket", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] } });
+      mockAgents();
       mockedPatch.mockResolvedValue({
         data: { ticket: { ...MOCK_TICKET, assignedTo: null } },
       });
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
-      await user.click(await screen.findByRole("option", { name: /unassigned/i }));
+      await user.click(
+        await screen.findByRole("option", { name: /unassigned/i }),
+      );
 
       await waitFor(() => {
         expect(mockedPatch).toHaveBeenCalledWith("/api/tickets/42", {
@@ -179,15 +158,14 @@ describe("<TicketDetail /> assignment", () => {
     });
 
     it("invalidates the ticket and tickets-list queries on success", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: null } });
+      mockAgents();
       mockedPatch.mockResolvedValue({
-        data: { ticket: { ...MOCK_TICKET, assignedTo: MOCK_AGENTS[0] } },
+        data: { ticket: { ...MOCK_TICKET, assignedTo: MOCK_AGENTS[1] } },
       });
       const user = userEvent.setup();
-      const { queryClient } = renderDetail();
+      const { queryClient } = renderUpdate({ ...MOCK_TICKET, assignedTo: null });
       const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
       await user.click(await screen.findByRole("option", { name: /Agent Two/ }));
 
@@ -200,12 +178,11 @@ describe("<TicketDetail /> assignment", () => {
     });
 
     it("disables the control while the assignment mutation is in flight", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: null } });
+      mockAgents();
       mockedPatch.mockReturnValueOnce(new Promise(() => {}));
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: null });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
       await user.click(await screen.findByRole("option", { name: /Agent One/ }));
 
@@ -214,24 +191,21 @@ describe("<TicketDetail /> assignment", () => {
   });
 
   describe("updating status", () => {
-    it("renders a control reflecting the current status", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, status: TicketStatus.open } });
-      renderDetail();
-
-      await screen.findByRole("heading", { name: "Printer broken" });
+    it("renders a control reflecting the current status", () => {
+      mockAgents();
+      renderUpdate({ ...MOCK_TICKET, status: TicketStatus.open });
 
       expect(screen.getByLabelText("Set status")).toHaveTextContent("Open");
     });
 
     it("PATCHes the chosen status", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, status: TicketStatus.open } });
+      mockAgents();
       mockedPatch.mockResolvedValue({
         data: { ticket: { ...MOCK_TICKET, status: TicketStatus.closed } },
       });
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({ ...MOCK_TICKET, status: TicketStatus.open });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(screen.getByLabelText("Set status"));
       await user.click(await screen.findByRole("option", { name: "Closed" }));
 
@@ -245,18 +219,18 @@ describe("<TicketDetail /> assignment", () => {
 
   describe("updating category", () => {
     it("PATCHes the chosen category", async () => {
-      mockGets({
-        ticket: { ...MOCK_TICKET, category: TicketCategory.technical_question },
-      });
+      mockAgents();
       mockedPatch.mockResolvedValue({
         data: {
           ticket: { ...MOCK_TICKET, category: TicketCategory.refund_request },
         },
       });
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({
+        ...MOCK_TICKET,
+        category: TicketCategory.technical_question,
+      });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(screen.getByLabelText("Set category"));
       await user.click(await screen.findByRole("option", { name: "Refund" }));
 
@@ -268,16 +242,16 @@ describe("<TicketDetail /> assignment", () => {
     });
 
     it("PATCHes a null category when 'Uncategorized' is chosen", async () => {
-      mockGets({
-        ticket: { ...MOCK_TICKET, category: TicketCategory.technical_question },
-      });
+      mockAgents();
       mockedPatch.mockResolvedValue({
         data: { ticket: { ...MOCK_TICKET, category: null } },
       });
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({
+        ...MOCK_TICKET,
+        category: TicketCategory.technical_question,
+      });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(screen.getByLabelText("Set category"));
       await user.click(
         await screen.findByRole("option", { name: /uncategorized/i }),
@@ -299,12 +273,11 @@ describe("<TicketDetail /> assignment", () => {
     });
 
     it("shows an error message when the assignment PATCH fails", async () => {
-      mockGets({ ticket: { ...MOCK_TICKET, assignedTo: null } });
+      mockAgents();
       mockedPatch.mockRejectedValueOnce(new Error("network down"));
       const user = userEvent.setup();
-      renderDetail();
+      renderUpdate({ ...MOCK_TICKET, assignedTo: null });
 
-      await screen.findByRole("heading", { name: "Printer broken" });
       await user.click(assignControl());
       await user.click(await screen.findByRole("option", { name: /Agent One/ }));
 
