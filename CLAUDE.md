@@ -1,4 +1,4 @@
-# Helpdesk
+# Helpdesk Ticket Managers
 
 A helpdesk application with a React frontend and Express backend.
 
