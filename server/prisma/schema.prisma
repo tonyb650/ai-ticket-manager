@@ -120,6 +120,7 @@ enum SenderType {
 model TicketReply {
   id         Int        @id @default(autoincrement())
   body       String
+  bodyHtml   String?
   senderType SenderType
   ticketId   Int
   ticket     Ticket     @relation(fields: [ticketId], references: [id], onDelete: Cascade)

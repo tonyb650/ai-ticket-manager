@@ -72,6 +72,7 @@ export type Assignee = {
 export type TicketReply = {
   id: number;
   body: string;
+  bodyHtml: string | null;
   senderType: SenderType;
   createdAt: string;
   author: Assignee | null;
@@ -81,6 +82,7 @@ export type TicketDetail = {
   id: number;
   subject: string;
   body: string;
+  bodyHtml: string | null;
   fromEmail: string;
   fromName: string | null;
   category: TicketCategory | null;
@@ -108,16 +110,16 @@ export const updateTicketSchema = z.object({
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 
 export const inboundEmailSchema = z.object({
-  from: z.email(),
-  fromName: z.string().trim().optional(),
+  from: z.email().max(254),
+  fromName: z.string().trim().max(255).optional(),
   subject: z.string().trim().max(998).default(""),
-  text: z.string(),
-  html: z.string().optional(),
+  text: z.string().max(10000),
+  html: z.string().max(10000).optional(),
   category: z.enum(TicketCategory).optional(),
-  messageId: z.string().trim().optional(),
-  inReplyTo: z.string().trim().optional(),
-  autoSubmitted: z.string().trim().optional(),
-  precedence: z.string().trim().optional(),
+  messageId: z.string().trim().max(998).optional(),
+  inReplyTo: z.string().trim().max(998).optional(),
+  autoSubmitted: z.string().trim().max(255).optional(),
+  precedence: z.string().trim().max(255).optional(),
 });
 
 export type InboundEmailInput = z.infer<typeof inboundEmailSchema>;

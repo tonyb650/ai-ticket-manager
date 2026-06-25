@@ -1,4 +1,5 @@
 import axios from "axios";
+import DOMPurify from "dompurify";
 import { useQuery } from "@tanstack/react-query";
 import {
   SenderType,
@@ -81,9 +82,18 @@ export default function ReplyThread({ ticket }: Props) {
                 {new Date(reply.createdAt).toLocaleString()}
               </span>
             </div>
-            <pre className="mt-2 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
-              {reply.body}
-            </pre>
+            {reply.bodyHtml ? (
+              <div
+                className="mt-2 text-sm text-gray-800 [&_a]:underline [&_a]:text-blue-600"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(reply.bodyHtml),
+                }}
+              />
+            ) : (
+              <pre className="mt-2 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
+                {reply.body}
+              </pre>
+            )}
           </div>
         );
       })}

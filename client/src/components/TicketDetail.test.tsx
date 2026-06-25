@@ -8,6 +8,7 @@ const MOCK_TICKET: TicketDetailType = {
   id: 42,
   subject: "Printer broken",
   body: "It will not print.\nTried twice.",
+  bodyHtml: null,
   fromEmail: "alice@example.com",
   fromName: "Alice Customer",
   category: TicketCategory.technical_question,
@@ -24,6 +25,38 @@ describe("<TicketDetail />", () => {
     expect(
       screen.getByText(/It will not print\./),
     ).toBeInTheDocument();
+  });
+
+  it("renders bodyHtml as markup when present", () => {
+    render(
+      <TicketDetail
+        ticket={{
+          ...MOCK_TICKET,
+          bodyHtml: '<p>Hello <a href="https://example.com">link</a></p>',
+        }}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: "link" });
+    expect(link).toHaveAttribute("href", "https://example.com");
+    // The plain-text body should not be rendered when bodyHtml is shown.
+    expect(screen.queryByText(/It will not print\./)).not.toBeInTheDocument();
+  });
+
+  it("sanitizes dangerous markup in bodyHtml", () => {
+    render(
+      <TicketDetail
+        ticket={{
+          ...MOCK_TICKET,
+          bodyHtml:
+            '<p>Safe</p><script>window.__pwned = true;</script><img src=x onerror="window.__pwned = true">',
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Safe")).toBeInTheDocument();
+    expect(document.querySelector("script")).toBeNull();
+    expect(document.querySelector("img[onerror]")).toBeNull();
   });
 
   it("renders the created and last-updated timestamps", () => {

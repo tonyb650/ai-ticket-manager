@@ -19,6 +19,7 @@ const ticketDetailSelect = {
   id: true,
   subject: true,
   body: true,
+  bodyHtml: true,
   fromEmail: true,
   fromName: true,
   category: true,
@@ -37,6 +38,7 @@ const ticketDetailSelect = {
 const replySelect = {
   id: true,
   body: true,
+  bodyHtml: true,
   senderType: true,
   createdAt: true,
   author: {

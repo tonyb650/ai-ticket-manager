@@ -1,7 +1,11 @@
+import DOMPurify from "dompurify";
 import { type TicketDetail as TicketDetailType } from "core";
 
 type Props = {
-  ticket: Pick<TicketDetailType, "body" | "updatedAt" | "createdAt">;
+  ticket: Pick<
+    TicketDetailType,
+    "body" | "bodyHtml" | "updatedAt" | "createdAt"
+  >;
 };
 
 export default function TicketDetail({ ticket }: Props) {
@@ -18,9 +22,18 @@ export default function TicketDetail({ ticket }: Props) {
         </dd>
       </dl>
 
-      <pre className="mt-6 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
-        {ticket.body}
-      </pre>
+      {ticket.bodyHtml ? (
+        <div
+          className="mt-6 text-sm text-gray-800 [&_a]:underline [&_a]:text-blue-600"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(ticket.bodyHtml),
+          }}
+        />
+      ) : (
+        <pre className="mt-6 whitespace-pre-wrap wrap-break-word font-sans text-sm text-gray-800">
+          {ticket.body}
+        </pre>
+      )}
     </div>
   );
 }

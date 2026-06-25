@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__context7__query-docs",
+      "Bash(bun install *)",
+      "Bash(bun run *)",
+      "Bash(echo \"server PID: $!\")",
+      "Bash(echo \"client PID: $!\")",
+      "Read(//private/tmp/**)",
+      "mcp__context7__resolve-library-id",
+      "Bash(bun add *)",
+      "Bash(bun db:migrate)",
+      "Bash(bun db:generate)",
+      "Bash(bun db:seed *)",
+      "Bash(npx prisma *)",
+      "Bash(psql postgresql://helpdesk:helpdesk@localhost:5432/helpdesk -c \"SELECT id, email, role FROM \\\\\"user\\\\\";\")",
+      "Bash(bunx tsc *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(docker compose *)",
+      "Bash(bunx *)",
+      "Bash(bun *)",
+      "Bash(openssl rand *)",
+      "mcp__ide__getDiagnostics",
+      "Bash(psql --version)"
+    ]
+  }
+}

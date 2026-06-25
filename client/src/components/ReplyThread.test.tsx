@@ -14,6 +14,7 @@ const MOCK_TICKET: TicketDetail = {
   id: 42,
   subject: "Printer broken",
   body: "It will not print.",
+  bodyHtml: null,
   fromEmail: "alice@example.com",
   fromName: "Alice Customer",
   category: TicketCategory.technical_question,
@@ -26,6 +27,7 @@ const MOCK_TICKET: TicketDetail = {
 const AGENT_REPLY: TicketReply = {
   id: 1,
   body: "Have you tried turning it off and on?",
+  bodyHtml: null,
   senderType: SenderType.agent,
   createdAt: "2026-05-20T11:00:00.000Z",
   author: { id: "user-1", name: "Agent One", email: "one@example.com" },
@@ -34,6 +36,7 @@ const AGENT_REPLY: TicketReply = {
 const CUSTOMER_REPLY: TicketReply = {
   id: 2,
   body: "Yes, still broken.",
+  bodyHtml: null,
   senderType: SenderType.customer,
   createdAt: "2026-05-20T12:00:00.000Z",
   author: null,
@@ -87,6 +90,36 @@ describe("<ReplyThread />", () => {
     expect(
       screen.getByText("Alice Customer <alice@example.com>"),
     ).toBeInTheDocument();
+  });
+
+  it("renders a reply's bodyHtml as markup when present", async () => {
+    mockReplies([
+      {
+        ...AGENT_REPLY,
+        bodyHtml: '<p>See this <a href="https://example.com">link</a></p>',
+      },
+    ]);
+    renderThread();
+
+    const link = await screen.findByRole("link", { name: "link" });
+    expect(link).toHaveAttribute("href", "https://example.com");
+    // The plain-text body should not be rendered when bodyHtml is shown.
+    expect(screen.queryByText(AGENT_REPLY.body)).not.toBeInTheDocument();
+  });
+
+  it("sanitizes dangerous markup in a reply's bodyHtml", async () => {
+    mockReplies([
+      {
+        ...AGENT_REPLY,
+        bodyHtml:
+          '<p>Safe reply</p><script>window.__pwned = true;</script><img src=x onerror="window.__pwned = true">',
+      },
+    ]);
+    renderThread();
+
+    await screen.findByText("Safe reply");
+    expect(document.querySelector("script")).toBeNull();
+    expect(document.querySelector("img[onerror]")).toBeNull();
   });
 
   it("renders nothing when the thread is empty", async () => {

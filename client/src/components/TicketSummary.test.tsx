@@ -8,6 +8,7 @@ const MOCK_TICKET: TicketDetail = {
   id: 42,
   subject: "Printer broken",
   body: "It will not print.",
+  bodyHtml: null,
   fromEmail: "alice@example.com",
   fromName: "Alice Customer",
   category: TicketCategory.technical_question,
